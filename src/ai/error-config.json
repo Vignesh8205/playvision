@@ -1,0 +1,30 @@
+{
+    "categories": [
+        "Locator Not Found",
+        "Timeout Error",
+        "Assertion Failure",
+        "Network Error",
+        "Visibility Issue",
+        "Unknown Error"
+    ],
+    "suggestions": {
+        "Locator Not Found": "Check if the selector is correct. Consider using getByRole(), getByTestId(), or getByText() for more reliable locators.",
+        "Timeout Error": "Increase the timeout value or add explicit wait conditions using waitFor() before interactions.",
+        "Assertion Failure": "Review the expected vs actual values. Ensure the assertion logic matches the test requirements.",
+        "Network Error": "Check network connectivity, API endpoints, or mock network requests in tests.",
+        "Visibility Issue": "Element may be hidden or obscured. Use waitForSelector() with visible: true or check CSS properties.",
+        "Unknown Error": "Review the error stack trace for more details. Consider adding debug logs."
+    },
+    "fixExamples": {
+        "Locator Not Found": "await page.getByRole('button', { name: 'Submit' }).click();",
+        "Timeout Error": "await page.waitForSelector('.element', { timeout: 10000 });",
+        "Visibility Issue": "await page.locator('.element').waitFor({ state: 'visible' });"
+    },
+    "patterns": {
+        "Locator Not Found": "locator.*not found|element.*not found|selector.*not found",
+        "Timeout Error": "timeout.*exceeded|waiting.*timed out|timeout of \\d+ms exceeded",
+        "Assertion Failure": "expect.*to.*but.*received|assertion.*failed",
+        "Network Error": "net::ERR|fetch failed|ECONNREFUSED|network error",
+        "Visibility Issue": "not visible|hidden|obscured|element is not visible"
+    }
+}

@@ -1,0 +1,14 @@
+{
+    "name": "test-project",
+    "version": "1.0.0",
+    "description": "Test project for PlayVision Reporter",
+    "scripts": {
+        "test": "playwright test",
+        "test:headed": "playwright test --headed",
+        "test:ui": "playwright test --ui"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.56.1",
+        "typescript": "^5.9.3"
+    }
+}

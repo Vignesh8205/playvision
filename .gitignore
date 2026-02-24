@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+playvision-report/
+test-project/node_modules/
+test-project/playwright-report/
+test-project/test-results/
+src/**/*.js
+src/**/*.js.map
+.env
