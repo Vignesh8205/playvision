@@ -66,13 +66,32 @@ export interface ErrorDetails {
  * AI error analysis result
  */
 export interface AIAnalysis {
+    /** Primary error category */
     category: string;
+    /** Confidence score 0–1 */
     confidence: number;
+    /** Detailed root cause explanation */
     rootCause: string;
+    /** Step-by-step fix suggestion */
     suggestion: string;
+    /** Optional code fix example */
     fixExample?: string;
-    // New: alternative categories with their confidence scores for more insight
+    /** Alternative category classifications */
     alternatives?: { category: string; confidence: number }[];
+    /** Severity level of the failure */
+    severity?: 'critical' | 'high' | 'medium' | 'low';
+    /** Business/functional impact of this failure */
+    impact?: string;
+    /** How to prevent this class of error in the future */
+    prevention?: string;
+    /** Rough estimate of time to fix */
+    estimatedFixTime?: string;
+    /** Searchable tags for this error type */
+    tags?: string[];
+    /** Which AI model performed the analysis */
+    model?: string;
+    /** Timestamp of the analysis */
+    analyzedAt?: number;
 }
 
 /**

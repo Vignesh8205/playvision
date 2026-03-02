@@ -73,19 +73,25 @@ export class OpenAIAnalyzer extends BaseAIAnalyzer {
     }
 
     private createPrompt(errorMessage: string, stackTrace: string): string {
-        const errorContext = stackTrace ? stackTrace.substring(0, 2000) : errorMessage.substring(0, 1000);
+        const errorContext = stackTrace ? stackTrace.substring(0, 2500) : errorMessage.substring(0, 1200);
 
-        return `You are a QA Automation expert. Analyze this Playwright/JavaScript error which occurred during test execution.
+        return `You are a senior QA Automation engineer and Playwright expert. Deeply analyze this Playwright/JavaScript test failure and provide comprehensive diagnostic information.
         
 Error details:
 ${errorContext}
 
-Respond ONLY with a valid JSON object in the following format. Do not use Markdown notation like \`\`\`json.
+Respond ONLY with a valid JSON object. Do NOT use Markdown notation like \`\`\`json. Use this exact schema:
 {
-  "category": "one of [Selector Error, Timeout Error, Network Error, Assertion Error, Javascript Error]",
-  "rootCause": "Detailed explanation of why this error occurred. Explain the specific mismatch or failure condition clearly.",
-  "suggestion": "Step-by-step instructions on how to fix this. Provide 2-3 actionable bullets numbered 1, 2, 3.",
-  "fixExample": "Complete code snippet showing the corrected approach. Include necessary imports or context."
+  "category": "one of [Selector Error, Timeout Error, Network Error, Assertion Error, Javascript Error, State Error, Authentication Error, Configuration Error]",
+  "severity": "one of [critical, high, medium, low] — critical means the test blocks a release or core user journey; low means cosmetic/intermittent",
+  "confidence": 0.95,
+  "rootCause": "2-4 sentences: the precise technical reason this error occurred, including what was expected vs what happened, what component malfunctioned, and why.",
+  "impact": "1-2 sentences describing the business or functional impact — what feature or user flow is broken, what risk this poses if shipped.",
+  "suggestion": "Numbered list of 3-4 concrete, actionable steps to fix the issue. Each step must be a complete sentence.",
+  "prevention": "1-3 bullet points describing coding patterns, test design improvements, or CI/CD practices that prevent this class of error recurring.",
+  "fixExample": "A complete, runnable Playwright code snippet demonstrating the correct implementation. Include comments explaining the key change.",
+  "estimatedFixTime": "e.g. '5 minutes', '30 minutes', '2 hours' — realistic estimate for an experienced dev",
+  "tags": ["2-5 short lowercase tags relevant to this error, e.g. locator, async, assertion, network, selector"]
 }`;
     }
 
@@ -154,17 +160,27 @@ Respond ONLY with a valid JSON object in the following format. Do not use Markdo
 
             // Attempt to fix common JSON syntax errors if model output is messy
             if (jsonStr.lastIndexOf('}') < jsonStr.lastIndexOf('"')) {
-                jsonStr += '"}';
+                jsonStr += '"}}';
             }
 
             const result = JSON.parse(jsonStr);
 
+            const validSeverities = ['critical', 'high', 'medium', 'low'];
+            const severity = validSeverities.includes(result.severity) ? result.severity : 'medium';
+
             return {
                 category: result.category || 'Unknown Error',
-                confidence: 0.95, // High confidence for GPT-based analysis
+                confidence: typeof result.confidence === 'number' ? result.confidence : 0.95,
                 rootCause: result.rootCause || originalError,
                 suggestion: result.suggestion || 'Check the error message manually.',
-                fixExample: result.fixExample
+                fixExample: result.fixExample,
+                severity: severity as 'critical' | 'high' | 'medium' | 'low',
+                impact: result.impact,
+                prevention: result.prevention,
+                estimatedFixTime: result.estimatedFixTime,
+                tags: Array.isArray(result.tags) ? result.tags.slice(0, 6) : [],
+                model: this.MODEL,
+                analyzedAt: Date.now(),
             };
         } catch (e) {
             console.warn('⚠️ Failed to parse OpenAI response as JSON. Raw response:', response);
@@ -173,6 +189,8 @@ Respond ONLY with a valid JSON object in the following format. Do not use Markdo
                 confidence: 0.5,
                 rootCause: originalError,
                 suggestion: 'Could not parse AI advice. ' + response.substring(0, 100) + '...',
+                severity: 'medium',
+                analyzedAt: Date.now(),
             };
         }
     }
