@@ -2,6 +2,7 @@ import { IAIAnalyzer, AIMode } from './interfaces';
 import { HuggingFaceAnalyzer } from './huggingface-analyzer';
 import { RuleBasedAnalyzer } from './rule-based-analyzer';
 import { OllamaAnalyzer } from './ollama-analyzer';
+import { OpenAIAnalyzer } from './openai-analyzer';
 
 /**
  * Factory for creating AI analyzers based on mode
@@ -40,6 +41,9 @@ export class AIAnalyzerFactory {
                     break;
                 case AIMode.PREMIUM:
                     analyzer = new OllamaAnalyzer();
+                    break;
+                case AIMode.OPENAI:
+                    analyzer = new OpenAIAnalyzer();
                     break;
                 case AIMode.BASIC:
                 default:

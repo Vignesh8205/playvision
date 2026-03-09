@@ -28,7 +28,7 @@ export class PlayVisionReporter implements Reporter {
         };
 
         const aiMode = this.config.aiMode as AIMode;
-        this.eventCollector = new EventCollector(aiMode);
+        this.eventCollector = new EventCollector(aiMode, this.config.aiAnalysis);
         this.assetCollector = new AssetCollector(this.config.outputFolder);
         this.serializer = new DataSerializer(this.config.outputFolder);
         this.htmlRenderer = new HTMLRenderer(this.config.outputFolder);
