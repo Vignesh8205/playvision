@@ -17,6 +17,7 @@ export class PlayVisionReporter implements Reporter {
     private serializer: DataSerializer;
     private htmlRenderer: HTMLRenderer;
     private metadata: ReportMetadata;
+    private pendingTasks: Promise<void>[] = [];
 
     constructor(options: Partial<PlayVisionConfig> = {}) {
         this.config = {
@@ -57,17 +58,25 @@ export class PlayVisionReporter implements Reporter {
         this.eventCollector.startTest(test);
     }
 
-    async onTestEnd(test: TestCase, result: PWTestResult): Promise<void> {
-        await this.eventCollector.endTest(test, result);
-        this.updateMetadata(result);
+    onTestEnd(test: TestCase, result: PWTestResult): void {
+        const task = (async () => {
+            await this.eventCollector.endTest(test, result);
+            this.updateMetadata(result);
 
-        // Collect assets for failed tests
-        if (result.status === 'failed' || result.status === 'timedOut') {
-            await this.assetCollector.collectAssets(test, result);
-        }
+            // Collect assets for failed tests
+            if (result.status === 'failed' || result.status === 'timedOut') {
+                await this.assetCollector.collectAssets(test, result);
+            }
+        })();
+        this.pendingTasks.push(task);
     }
 
     async onEnd(result: FullResult): Promise<void> {
+        if (this.pendingTasks.length > 0) {
+            console.log(`⏳ Waiting for ${this.pendingTasks.length} background tasks (like AI analysis)...`);
+            await Promise.all(this.pendingTasks);
+        }
+
         this.metadata.endTime = Date.now();
         this.metadata.duration = this.metadata.endTime - this.metadata.startTime;
 

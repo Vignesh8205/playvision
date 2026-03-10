@@ -12,6 +12,7 @@ export class EventCollector implements IEventCollector {
     private results: Map<string, TestResult> = new Map();
     private aiMode: AIMode;
     private aiAnalysisEnabled: boolean;
+    private pendingTasks: Promise<void>[] = [];
 
     constructor(aiMode: AIMode = AIMode.SMART, aiAnalysisEnabled: boolean = true) {
         this.aiMode = aiMode;
@@ -21,18 +22,28 @@ export class EventCollector implements IEventCollector {
     startTest(test: TestCase): void {
         const testId = this.generateStableTestId(test);
 
-        this.results.set(testId, {
-            testId,
-            title: test.title,
-            suite: test.parent.title,
-            status: 'passed',
-            startTime: Date.now(),
-            endTime: 0,
-            duration: 0,
-            retries: 0,
-            steps: [],
-            attachments: []
-        });
+        if (!this.results.has(testId)) {
+            this.results.set(testId, {
+                testId,
+                title: test.title,
+                suite: test.parent.title,
+                status: 'passed',
+                startTime: Date.now(),
+                endTime: 0,
+                duration: 0,
+                retries: 0,
+                steps: [],
+                attachments: []
+            });
+        } else {
+            // Unset the error if retry starts, so if it fails again, it populates fresh.
+            // But we keep the object reference so pending endTest calls don't point to detached objects
+            const existing = this.results.get(testId)!;
+            // Optionally clear past steps so we only see the latest attempt's steps
+            existing.steps = [];
+            existing.attachments = [];
+            // Do NOT delete existing.error so flaky tests keep their error context
+        }
     }
 
     async endTest(test: TestCase, result: PWTestResult): Promise<void> {
@@ -140,6 +151,16 @@ export class EventCollector implements IEventCollector {
             } else {
                 console.log(`No error message found for failed test: ${testResult.title} (status: ${result.status})`);
             }
+        }
+    }
+
+    /**
+     * Wait for all background collection tasks (e.g., AI analysis) to complete
+     */
+    async waitForCompletion(): Promise<void> {
+        if (this.pendingTasks.length > 0) {
+            console.log(`Waiting for ${this.pendingTasks.length} background tasks to complete...`);
+            await Promise.all(this.pendingTasks);
         }
     }
 

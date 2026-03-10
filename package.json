@@ -18,7 +18,10 @@
     "html-report",
     "test-automation"
   ],
-  "author": "Vignesh",
+  "author": {
+    "name": "Vignesh s",
+    "url": "https://github.com/Vignesh8205"
+  },
   "license": "MIT",
   "files": [
     "dist/**/*",
