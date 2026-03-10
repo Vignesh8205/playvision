@@ -1,8 +1,8 @@
 import { TestCase, TestResult as PWTestResult } from '@playwright/test/reporter';
-import { TestResult, TestStep } from '../schema/types';
+import { AIAnalysis, TestResult, TestStep } from '../schema/types';
 import { IEventCollector } from './interfaces';
 import { AIAnalyzerFactory, AIMode } from '../ai';
-import { generateTestId, sanitizeFilename } from '../utils/helpers';
+import { sanitizeFilename } from '../utils/helpers';
 import * as path from 'path';
 
 /**
@@ -11,36 +11,49 @@ import * as path from 'path';
 export class EventCollector implements IEventCollector {
     private results: Map<string, TestResult> = new Map();
     private aiMode: AIMode;
+    private aiAnalysisEnabled: boolean;
+    private pendingTasks: Promise<void>[] = [];
 
-    constructor(aiMode: AIMode = AIMode.SMART) {
+    constructor(aiMode: AIMode = AIMode.SMART, aiAnalysisEnabled: boolean = true) {
         this.aiMode = aiMode;
+        this.aiAnalysisEnabled = aiAnalysisEnabled;
     }
 
     startTest(test: TestCase): void {
-        const testId = generateTestId(test.parent.title, test.title);
+        const testId = this.generateStableTestId(test);
 
-        this.results.set(testId, {
-            testId,
-            title: test.title,
-            suite: test.parent.title,
-            status: 'passed',
-            startTime: Date.now(),
-            endTime: 0,
-            duration: 0,
-            retries: 0,
-            steps: [],
-            attachments: []
-        });
+        if (!this.results.has(testId)) {
+            this.results.set(testId, {
+                testId,
+                title: test.title,
+                suite: test.parent.title,
+                status: 'passed',
+                startTime: Date.now(),
+                endTime: 0,
+                duration: 0,
+                retries: 0,
+                steps: [],
+                attachments: []
+            });
+        } else {
+            // Unset the error if retry starts, so if it fails again, it populates fresh.
+            // But we keep the object reference so pending endTest calls don't point to detached objects
+            const existing = this.results.get(testId)!;
+            // Optionally clear past steps so we only see the latest attempt's steps
+            existing.steps = [];
+            existing.attachments = [];
+            // Do NOT delete existing.error so flaky tests keep their error context
+        }
     }
 
     async endTest(test: TestCase, result: PWTestResult): Promise<void> {
-        const testId = generateTestId(test.parent.title, test.title);
+        const testId = this.generateStableTestId(test);
         const testResult = this.results.get(testId);
 
-        console.log(`\n🏁 endTest called for: ${test.title}, Status: ${result.status}`);
+        console.log(`\nendTest called for: ${test.title}, Status: ${result.status}`);
 
         if (!testResult) {
-            console.log(`⚠️ No testResult found for ${testId}`);
+            console.log(`No testResult found for ${testId}`);
             return;
         }
 
@@ -54,7 +67,7 @@ export class EventCollector implements IEventCollector {
 
         // Collect attachments metadata with relative paths
         testResult.attachments = result.attachments.map((att, index) => {
-            const testId = sanitizeFilename(test.title);
+            const sanitizedTitle = sanitizeFilename(test.title);
             const ext = att.path ? path.extname(att.path) : '';
             const type = this.getAttachmentType(att.contentType);
 
@@ -65,7 +78,7 @@ export class EventCollector implements IEventCollector {
             else if (type === 'trace') folder = 'traces';
 
             // Create relative path to the copied asset
-            const relativePath = folder ? `assets/${folder}/${testId}-${index}${ext}` : att.path || '';
+            const relativePath = folder ? `assets/${folder}/${sanitizedTitle}-${index}${ext}` : att.path || '';
 
             return {
                 name: att.name || `attachment-${index}`,
@@ -84,13 +97,13 @@ export class EventCollector implements IEventCollector {
             if (result.errors && result.errors.length > 0) {
                 errorMessage = result.errors[0].message || '';
                 errorStack = result.errors[0].stack || '';
-                console.log(`📍 Error from result.errors`);
+                console.log('Error from result.errors');
             }
             // Source 2: result.error property (older Playwright)
             else if ((result as any).error) {
                 errorMessage = (result as any).error.message || '';
                 errorStack = (result as any).error.stack || '';
-                console.log(`📍 Error from result.error`);
+                console.log('Error from result.error');
             }
             // Source 3: Extract from failed step
             else {
@@ -98,23 +111,27 @@ export class EventCollector implements IEventCollector {
                 if (failedStep && failedStep.error) {
                     errorMessage = failedStep.error;
                     errorStack = failedStep.error;
-                    console.log(`📍 Error from failed step: ${failedStep.name}`);
+                    console.log(`Error from failed step: ${failedStep.name}`);
                 }
             }
 
             // If we found an error, analyze it and save
             if (errorMessage) {
                 try {
-                    console.log(`🔍 Analyzing error for: ${testResult.title}`);
-                    const analyzer = await AIAnalyzerFactory.create(this.aiMode);
+                    let aiAnalysis: AIAnalysis | undefined;
 
-                    const error = new Error(errorMessage);
-                    error.stack = errorStack;
+                    if (this.aiAnalysisEnabled) {
+                        console.log(`Analyzing error for: ${testResult.title}`);
+                        const analyzer = await AIAnalyzerFactory.create(this.aiMode);
 
-                    const aiAnalysis = await analyzer.analyze(error);
+                        const error = new Error(errorMessage);
+                        error.stack = errorStack;
 
-                    if (aiAnalysis) {
-                        console.log(`✅ AI: ${aiAnalysis.category} (${(aiAnalysis.confidence * 100).toFixed(0)}%)`);
+                        aiAnalysis = await analyzer.analyze(error);
+
+                        if (aiAnalysis) {
+                            console.log(`AI: ${aiAnalysis.category} (${(aiAnalysis.confidence * 100).toFixed(0)}%)`);
+                        }
                     }
 
                     testResult.error = {
@@ -123,17 +140,27 @@ export class EventCollector implements IEventCollector {
                         aiAnalysis
                     };
 
-                    console.log(`💾 Saved error to testResult. Has aiAnalysis: ${!!aiAnalysis}`);
+                    console.log(`Saved error to testResult. Has aiAnalysis: ${!!aiAnalysis}`);
                 } catch (err) {
-                    console.warn('⚠️ AI analysis failed:', err);
+                    console.warn('AI analysis failed:', err);
                     testResult.error = {
                         message: errorMessage,
                         stack: errorStack
                     };
                 }
             } else {
-                console.log(`⚠️ No error message found for failed test: ${testResult.title} (status: ${result.status})`);
+                console.log(`No error message found for failed test: ${testResult.title} (status: ${result.status})`);
             }
+        }
+    }
+
+    /**
+     * Wait for all background collection tasks (e.g., AI analysis) to complete
+     */
+    async waitForCompletion(): Promise<void> {
+        if (this.pendingTasks.length > 0) {
+            console.log(`Waiting for ${this.pendingTasks.length} background tasks to complete...`);
+            await Promise.all(this.pendingTasks);
         }
     }
 
@@ -141,7 +168,7 @@ export class EventCollector implements IEventCollector {
         const results = Array.from(this.results.values());
         const withErrors = results.filter(r => r.error).length;
         const withAI = results.filter(r => r.error?.aiAnalysis).length;
-        console.log(`\n📊 Returning ${results.length} results: ${withErrors} with errors, ${withAI} with AI analysis\n`);
+        console.log(`\nReturning ${results.length} results: ${withErrors} with errors, ${withAI} with AI analysis\n`);
         return results;
     }
 
@@ -170,5 +197,12 @@ export class EventCollector implements IEventCollector {
         if (contentType.includes('image')) return 'screenshot';
         if (contentType.includes('video')) return 'video';
         return 'trace';
+    }
+
+    private generateStableTestId(test: TestCase): string {
+        const titlePath = typeof test.titlePath === 'function' ? test.titlePath() : [];
+        const location = test.location?.file || '';
+        const idSource = [location, ...titlePath].filter(Boolean).join('::');
+        return sanitizeFilename(idSource || `${test.parent.title}::${test.title}`);
     }
 }

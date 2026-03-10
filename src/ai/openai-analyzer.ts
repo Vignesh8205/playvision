@@ -1,15 +1,18 @@
 import { BaseAIAnalyzer } from './base-analyzer';
 import { AIAnalysis } from '../schema/types';
+import * as http from 'http';
 import * as https from 'https';
 
 /**
  * OpenAI-Compatible API Analyzer
- * Uses OpenAI-compatible API (apifree.ai) for error analysis
+ * Uses OpenAI-compatible API for error analysis
  * Configuration is loaded from environment variables
  */
 export class OpenAIAnalyzer extends BaseAIAnalyzer {
-    private readonly API_URL: string;
-    private readonly API_PATH = '/v1/chat/completions';
+    private readonly API_PROTOCOL: 'http:' | 'https:';
+    private readonly API_HOST: string;
+    private readonly API_PORT: number;
+    private readonly API_PATH: string;
     private readonly MODEL: string;
     private readonly API_KEY: string;
     private initialized = false;
@@ -17,30 +20,37 @@ export class OpenAIAnalyzer extends BaseAIAnalyzer {
     constructor() {
         super();
 
-        // Load from environment variables with fallback to defaults
-        const apiUrl = process.env.OPENAI_API_URL || 'https://api.apifree.ai/v1/chat/completions';
-        const urlParts = new URL(apiUrl);
+        // Load from environment variables with fallback to defaults.
+        const rawApiUrl = process.env.OPENAI_API_URL || 'https://api.apifree.ai/v1/chat/completions';
+        const parsed = new URL(rawApiUrl);
 
-        this.API_URL = urlParts.hostname;
+        this.API_PROTOCOL = parsed.protocol === 'http:' ? 'http:' : 'https:';
+        this.API_HOST = parsed.hostname;
+        this.API_PORT = parsed.port
+            ? Number(parsed.port)
+            : this.API_PROTOCOL === 'https:'
+                ? 443
+                : 80;
+        this.API_PATH = `${parsed.pathname || '/v1/chat/completions'}${parsed.search || ''}`;
+
         this.MODEL = process.env.OPENAI_MODEL || 'openai/gpt-5.2';
         this.API_KEY = process.env.OPENAI_API_KEY || '';
 
         if (!this.API_KEY) {
-            console.warn('⚠️  OPENAI_API_KEY not found in environment variables. OpenAI analyzer may not work.');
+            console.warn('OPENAI_API_KEY not found in environment variables. OpenAI analyzer may not work.');
         }
     }
 
     async initialize(): Promise<void> {
         if (this.initialized) return;
 
-        console.log('🔌 Initializing OpenAI-compatible API analyzer...');
+        console.log('Initializing OpenAI-compatible API analyzer...');
         try {
-            // Test the API connection with a simple request
             await this.testConnection();
-            console.log('✅ OpenAI API connection established');
+            console.log('OpenAI API connection established');
             this.initialized = true;
         } catch (error) {
-            console.warn('⚠️  Could not connect to OpenAI API:', error);
+            console.warn('Could not connect to OpenAI API:', error);
             this.initialized = false;
         }
     }
@@ -62,7 +72,7 @@ export class OpenAIAnalyzer extends BaseAIAnalyzer {
             const response = await this.queryOpenAI(prompt);
             return this.parseResponse(response, errorMessage);
         } catch (err) {
-            console.error('❌ OpenAI analysis failed:', err);
+            console.error('OpenAI analysis failed:', err);
             return {
                 category: 'Unknown Error',
                 confidence: 0,
@@ -73,19 +83,25 @@ export class OpenAIAnalyzer extends BaseAIAnalyzer {
     }
 
     private createPrompt(errorMessage: string, stackTrace: string): string {
-        const errorContext = stackTrace ? stackTrace.substring(0, 2000) : errorMessage.substring(0, 1000);
+        const errorContext = stackTrace ? stackTrace.substring(0, 2500) : errorMessage.substring(0, 1200);
 
-        return `You are a QA Automation expert. Analyze this Playwright/JavaScript error which occurred during test execution.
+        return `You are a senior QA Automation engineer and Playwright expert. Deeply analyze this Playwright/JavaScript test failure and provide comprehensive diagnostic information.
         
 Error details:
 ${errorContext}
 
-Respond ONLY with a valid JSON object in the following format. Do not use Markdown notation like \`\`\`json.
+Respond ONLY with a valid JSON object. Do NOT use Markdown notation like \`\`\`json. Use this exact schema:
 {
-  "category": "one of [Selector Error, Timeout Error, Network Error, Assertion Error, Javascript Error]",
-  "rootCause": "Detailed explanation of why this error occurred. Explain the specific mismatch or failure condition clearly.",
-  "suggestion": "Step-by-step instructions on how to fix this. Provide 2-3 actionable bullets numbered 1, 2, 3.",
-  "fixExample": "Complete code snippet showing the corrected approach. Include necessary imports or context."
+  "category": "one of [Selector Error, Timeout Error, Network Error, Assertion Error, Javascript Error, State Error, Authentication Error, Configuration Error]",
+  "severity": "one of [critical, high, medium, low] - critical means the test blocks a release or core user journey; low means cosmetic/intermittent",
+  "confidence": 0.95,
+  "rootCause": "2-4 sentences: the precise technical reason this error occurred, including what was expected vs what happened, what component malfunctioned, and why.",
+  "impact": "1-2 sentences describing the business or functional impact - what feature or user flow is broken, what risk this poses if shipped.",
+  "suggestion": "Numbered list of 3-4 concrete, actionable steps to fix the issue. Each step must be a complete sentence.",
+  "prevention": "1-3 bullet points describing coding patterns, test design improvements, or CI/CD practices that prevent this class of error recurring.",
+  "fixExample": "A complete, runnable Playwright code snippet demonstrating the correct implementation. Include comments explaining the key change.",
+  "estimatedFixTime": "e.g. '5 minutes', '30 minutes', '2 hours' - realistic estimate for an experienced dev",
+  "tags": ["2-5 short lowercase tags relevant to this error, e.g. locator, async, assertion, network, selector"]
 }`;
     }
 
@@ -99,7 +115,9 @@ Respond ONLY with a valid JSON object in the following format. Do not use Markdo
             });
 
             const options = {
-                hostname: this.API_URL,
+                protocol: this.API_PROTOCOL,
+                hostname: this.API_HOST,
+                port: this.API_PORT,
                 path: this.API_PATH,
                 method: 'POST',
                 headers: {
@@ -107,37 +125,37 @@ Respond ONLY with a valid JSON object in the following format. Do not use Markdo
                     'Authorization': `Bearer ${this.API_KEY}`,
                     'Content-Length': Buffer.byteLength(postData)
                 },
-                timeout: 30000 // 30 second timeout
+                timeout: 30000
             };
 
-            const req = https.request(options, (res) => {
+            const client = this.API_PROTOCOL === 'https:' ? https : http;
+            const req = client.request(options, (res) => {
                 let data = '';
                 res.on('data', (chunk) => data += chunk);
                 res.on('end', () => {
                     if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
                         try {
                             const json = JSON.parse(data);
-                            // Extract content from OpenAI response format
                             const content = json.choices?.[0]?.message?.content || '';
                             resolve(content);
                         } catch (e) {
-                            console.error('❌ Invalid JSON from OpenAI:', data.substring(0, 200));
+                            console.error('Invalid JSON from OpenAI:', data.substring(0, 200));
                             reject(new Error('Invalid JSON from OpenAI'));
                         }
                     } else {
-                        console.error(`❌ OpenAI API Error: ${res.statusCode}`);
+                        console.error(`OpenAI API Error: ${res.statusCode}`);
                         reject(new Error(`OpenAI API Error: ${res.statusCode} ${data}`));
                     }
                 });
             });
 
             req.on('error', (e) => {
-                console.error('❌ OpenAI request error:', e.message);
+                console.error('OpenAI request error:', e.message);
                 reject(e);
             });
 
             req.on('timeout', () => {
-                console.error('❌ OpenAI request timeout (30s)');
+                console.error('OpenAI request timeout (30s)');
                 req.destroy();
                 reject(new Error('OpenAI request timeout'));
             });
@@ -149,30 +167,40 @@ Respond ONLY with a valid JSON object in the following format. Do not use Markdo
 
     private parseResponse(response: string, originalError: string): AIAnalysis {
         try {
-            // Cleanup: sometimes models add markdown blocks or trailing chars
             let jsonStr = response.replace(/```json/g, '').replace(/```/g, '').trim();
 
-            // Attempt to fix common JSON syntax errors if model output is messy
             if (jsonStr.lastIndexOf('}') < jsonStr.lastIndexOf('"')) {
-                jsonStr += '"}';
+                jsonStr += '"}}';
             }
 
             const result = JSON.parse(jsonStr);
 
+            const validSeverities = ['critical', 'high', 'medium', 'low'];
+            const severity = validSeverities.includes(result.severity) ? result.severity : 'medium';
+
             return {
                 category: result.category || 'Unknown Error',
-                confidence: 0.95, // High confidence for GPT-based analysis
+                confidence: typeof result.confidence === 'number' ? result.confidence : 0.95,
                 rootCause: result.rootCause || originalError,
                 suggestion: result.suggestion || 'Check the error message manually.',
-                fixExample: result.fixExample
+                fixExample: result.fixExample,
+                severity: severity as 'critical' | 'high' | 'medium' | 'low',
+                impact: result.impact,
+                prevention: result.prevention,
+                estimatedFixTime: result.estimatedFixTime,
+                tags: Array.isArray(result.tags) ? result.tags.slice(0, 6) : [],
+                model: this.MODEL,
+                analyzedAt: Date.now(),
             };
         } catch (e) {
-            console.warn('⚠️ Failed to parse OpenAI response as JSON. Raw response:', response);
+            console.warn('Failed to parse OpenAI response as JSON. Raw response:', response);
             return {
                 category: 'Unknown Error',
                 confidence: 0.5,
                 rootCause: originalError,
                 suggestion: 'Could not parse AI advice. ' + response.substring(0, 100) + '...',
+                severity: 'medium',
+                analyzedAt: Date.now(),
             };
         }
     }
@@ -187,7 +215,9 @@ Respond ONLY with a valid JSON object in the following format. Do not use Markdo
             });
 
             const options = {
-                hostname: this.API_URL,
+                protocol: this.API_PROTOCOL,
+                hostname: this.API_HOST,
+                port: this.API_PORT,
                 path: this.API_PATH,
                 method: 'POST',
                 headers: {
@@ -195,16 +225,16 @@ Respond ONLY with a valid JSON object in the following format. Do not use Markdo
                     'Authorization': `Bearer ${this.API_KEY}`,
                     'Content-Length': Buffer.byteLength(postData)
                 },
-                timeout: 10000 // 10 second timeout for connection test
+                timeout: 10000
             };
 
-            const req = https.request(options, (res) => {
+            const client = this.API_PROTOCOL === 'https:' ? https : http;
+            const req = client.request(options, (res) => {
                 if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
                     resolve();
                 } else {
                     reject(new Error(`Status ${res.statusCode}`));
                 }
-                // Consume response data to free up memory
                 res.on('data', () => { });
             });
 

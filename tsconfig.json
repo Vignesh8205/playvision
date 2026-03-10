@@ -21,6 +21,7 @@
   "exclude": [
     "node_modules",
     "dist",
-    "test-project"
+    "test-project",
+    "src/html/report-ui"
   ]
 }

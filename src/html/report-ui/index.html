@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PlayVision Report</title>
+    <!-- Placeholder for data injection -->
+    <script id="playvision-data">
+        window.PLAYVISION_DATA = {
+            results: [],
+            metadata: {
+                totalTests: 0,
+                passed: 0,
+                failed: 0,
+                skipped: 0,
+                flaky: 0,
+                startTime: Date.now(),
+                duration: 0,
+                workers: 1
+            }
+        };
+    </script>
+</head>
+
+<body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>

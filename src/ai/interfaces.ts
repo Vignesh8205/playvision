@@ -26,5 +26,6 @@ export interface IAIAnalyzer {
 export enum AIMode {
     BASIC = 'basic',      // Rule-based analysis
     SMART = 'smart',      // HuggingFace transformers
-    PREMIUM = 'premium'   // Ollama
+    PREMIUM = 'premium',  // Ollama (with OpenAI fallback)
+    OPENAI = 'openai'     // OpenAI-compatible API (direct)
 }
