@@ -91,27 +91,40 @@ export class EventCollector implements IEventCollector {
         // Extract error from multiple sources
         let errorMessage = '';
         let errorStack = '';
+        let lineNumber: number | undefined;
+        let columnNumber: number | undefined;
+        let failedStepName: string | undefined;
 
         if (result.status !== 'passed' && result.status !== 'skipped') {
             // Source 1: result.errors array (Playwright v1.20+)
             if (result.errors && result.errors.length > 0) {
                 errorMessage = result.errors[0].message || '';
                 errorStack = result.errors[0].stack || '';
-                console.log('Error from result.errors');
+                
+                // Parse line and column from stack
+                const stackLines = errorStack.split('\n');
+                const firstStackLine = stackLines.find(line => line.includes(test.location.file));
+                if (firstStackLine) {
+                    const match = firstStackLine.match(/:(\d+):(\d+)/);
+                    if (match) {
+                        lineNumber = parseInt(match[1], 10);
+                        columnNumber = parseInt(match[2], 10);
+                    }
+                }
             }
             // Source 2: result.error property (older Playwright)
             else if ((result as any).error) {
                 errorMessage = (result as any).error.message || '';
                 errorStack = (result as any).error.stack || '';
-                console.log('Error from result.error');
             }
-            // Source 3: Extract from failed step
-            else {
-                const failedStep = testResult.steps.find(s => s.status === 'failed');
-                if (failedStep && failedStep.error) {
+
+            // Identify failed step
+            const failedStep = testResult.steps.find(s => s.status === 'failed');
+            if (failedStep) {
+                failedStepName = failedStep.name;
+                if (!errorMessage && failedStep.error) {
                     errorMessage = failedStep.error;
                     errorStack = failedStep.error;
-                    console.log(`Error from failed step: ${failedStep.name}`);
                 }
             }
 
@@ -137,7 +150,11 @@ export class EventCollector implements IEventCollector {
                     testResult.error = {
                         message: errorMessage,
                         stack: errorStack,
-                        aiAnalysis
+                        aiAnalysis,
+                        lineNumber,
+                        columnNumber,
+                        specFile: test.location.file,
+                        failedStepName
                     };
 
                     console.log(`Saved error to testResult. Has aiAnalysis: ${!!aiAnalysis}`);
@@ -145,7 +162,11 @@ export class EventCollector implements IEventCollector {
                     console.warn('AI analysis failed:', err);
                     testResult.error = {
                         message: errorMessage,
-                        stack: errorStack
+                        stack: errorStack,
+                        lineNumber,
+                        columnNumber,
+                        specFile: test.location.file,
+                        failedStepName
                     };
                 }
             } else {

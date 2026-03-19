@@ -64,44 +64,59 @@ export class OpenAIAnalyzer extends BaseAIAnalyzer {
             throw new Error('OpenAI Analyzer not initialized');
         }
 
-        const errorMessage = error.message;
-        const stackTrace = error.stack || '';
+        const errorMessage = this.stripAnsi(error.message);
+        const stackTrace = this.stripAnsi(error.stack || '');
         const prompt = this.createPrompt(errorMessage, stackTrace);
 
         try {
             const response = await this.queryOpenAI(prompt);
-            return this.parseResponse(response, errorMessage);
+            const analysis = this.parseResponse(response, errorMessage);
+
+            // If parsing returned a generic "Unknown" or empty cause, use heuristics instead
+            if (analysis.category === 'Unknown Error' || (analysis.rootCause && analysis.rootCause.includes('empty response'))) {
+                console.log('💡 OpenAI response was poor, falling back to heuristic analysis.');
+                return this.performHeuristicAnalysis(error);
+            }
+
+            return analysis;
         } catch (err) {
             console.error('OpenAI analysis failed:', err);
-            return {
-                category: 'Unknown Error',
-                confidence: 0,
-                rootCause: errorMessage,
-                suggestion: 'AI analysis failed. Check logs.',
-            };
+            return this.performHeuristicAnalysis(error);
         }
     }
 
     private createPrompt(errorMessage: string, stackTrace: string): string {
-        const errorContext = stackTrace ? stackTrace.substring(0, 2500) : errorMessage.substring(0, 1200);
+        const errorContext = stackTrace ? stackTrace.substring(0, 4000) : errorMessage.substring(0, 2000);
 
-        return `You are a senior QA Automation engineer and Playwright expert. Deeply analyze this Playwright/JavaScript test failure and provide comprehensive diagnostic information.
-        
-Error details:
+        return `You are a Senior Playwright Automation Expert. Perform a deep forensic analysis of this test failure.
+
+### ERROR CONTEXT:
 ${errorContext}
 
-Respond ONLY with a valid JSON object. Do NOT use Markdown notation like \`\`\`json. Use this exact schema:
+### MANDATORY STEPS:
+1. **Root Cause**: Explain exactly why the failure happened. Mention specific locators, URLs, or expected/actual values found in the log. Be thorough (2-3 sentences).
+2. **Category**: Choose EXACTLY ONE: [Locator Not Found, Timeout Error, Network Error, Assertion Failure, Visibility Issue, Navigation Error, Page Crash].
+3. **Actionable Suggestions**: Provide a numbered list of 3-4 specific steps. Do NOT be generic. Tell the user exactly which line or component to check.
+4. **Fix Example**: Write a complete runnable Playwright code snippet that directly addresses the specific failure.
+
+### RESPONSE FORMAT:
+- Return ONLY a raw JSON object.
+- No markdown code blocks, no backticks, no conversational filler.
+- Pick ONE category only.
+- Use "\\n" for newlines inside JSON string values.
+
+### JSON SCHEMA:
 {
-  "category": "one of [Selector Error, Timeout Error, Network Error, Assertion Error, Javascript Error, State Error, Authentication Error, Configuration Error]",
-  "severity": "one of [critical, high, medium, low] - critical means the test blocks a release or core user journey; low means cosmetic/intermittent",
-  "confidence": 0.95,
-  "rootCause": "2-4 sentences: the precise technical reason this error occurred, including what was expected vs what happened, what component malfunctioned, and why.",
-  "impact": "1-2 sentences describing the business or functional impact - what feature or user flow is broken, what risk this poses if shipped.",
-  "suggestion": "Numbered list of 3-4 concrete, actionable steps to fix the issue. Each step must be a complete sentence.",
-  "prevention": "1-3 bullet points describing coding patterns, test design improvements, or CI/CD practices that prevent this class of error recurring.",
-  "fixExample": "A complete, runnable Playwright code snippet demonstrating the correct implementation. Include comments explaining the key change.",
-  "estimatedFixTime": "e.g. '5 minutes', '30 minutes', '2 hours' - realistic estimate for an experienced dev",
-  "tags": ["2-5 short lowercase tags relevant to this error, e.g. locator, async, assertion, network, selector"]
+  "category": "string",
+  "severity": "critical | high | medium | low",
+  "confidence": 0.99,
+  "rootCause": "string",
+  "impact": "string",
+  "suggestion": "string",
+  "prevention": "string",
+  "fixExample": "string",
+  "estimatedFixTime": "string",
+  "tags": ["tag1", "tag2"]
 }`;
     }
 
@@ -167,22 +182,21 @@ Respond ONLY with a valid JSON object. Do NOT use Markdown notation like \`\`\`j
 
     private parseResponse(response: string, originalError: string): AIAnalysis {
         try {
-            let jsonStr = response.replace(/```json/g, '').replace(/```/g, '').trim();
-
-            if (jsonStr.lastIndexOf('}') < jsonStr.lastIndexOf('"')) {
-                jsonStr += '"}}';
-            }
-
-            const result = JSON.parse(jsonStr);
+            const result = this.robustParseJSON(response);
 
             const validSeverities = ['critical', 'high', 'medium', 'low'];
             const severity = validSeverities.includes(result.severity) ? result.severity : 'medium';
+
+            let suggestion = result.suggestion || 'Check the error message manually.';
+            if (Array.isArray(suggestion)) {
+                suggestion = suggestion.join('\n');
+            }
 
             return {
                 category: result.category || 'Unknown Error',
                 confidence: typeof result.confidence === 'number' ? result.confidence : 0.95,
                 rootCause: result.rootCause || originalError,
-                suggestion: result.suggestion || 'Check the error message manually.',
+                suggestion: suggestion,
                 fixExample: result.fixExample,
                 severity: severity as 'critical' | 'high' | 'medium' | 'low',
                 impact: result.impact,
@@ -191,9 +205,11 @@ Respond ONLY with a valid JSON object. Do NOT use Markdown notation like \`\`\`j
                 tags: Array.isArray(result.tags) ? result.tags.slice(0, 6) : [],
                 model: this.MODEL,
                 analyzedAt: Date.now(),
+                scriptImprovements: this.extractScriptImprovements(originalError, result.category || ''),
+                flakinessAnalysis: this.analyzeFlakiness(originalError, result.category || ''),
             };
         } catch (e) {
-            console.warn('Failed to parse OpenAI response as JSON. Raw response:', response);
+            console.warn('Failed to parse OpenAI response safely. Raw response:', response);
             return {
                 category: 'Unknown Error',
                 confidence: 0.5,

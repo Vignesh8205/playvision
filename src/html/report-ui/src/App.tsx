@@ -18,7 +18,12 @@ import {
     ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TestResult, ReportMetadata, Attachment } from './types';
+import { TestResult, ReportMetadata, Attachment, TestStep } from './types';
+
+// Utility to strip ANSI escape codes
+const stripAnsi = (str: string = '') => {
+    return str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+};
 
 // Global data from the reporter
 interface PlayVisionData {
@@ -236,7 +241,7 @@ const App: React.FC = () => {
                 {/* Right Content: Stats & AI Insights */}
                 <aside className="space-y-10">
                     {/* Ring Chart / Pass Rate Card */}
-                    <div className={`border rounded-[40px] p-8 relative overflow-hidden transition-all duration-500 ${theme === 'dark' ? 'bg-[#161920] border-white/5' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'
+                    <div className={`border rounded-[40px] p-8 relative overflow-hidden transition-all duration-500 flex flex-col min-h-[460px] ${theme === 'dark' ? 'bg-[#161920] border-white/5' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'
                         }`}>
                         <div className="absolute top-0 right-0 w-48 h-48 bg-purple-600/10 blur-[80px] -mr-20 -mt-20" />
 
@@ -250,15 +255,15 @@ const App: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="flex flex-col items-center justify-center py-6">
-                            <div className="relative text-center">
-                                <span className={`text-[80px] font-black tracking-tighter italic leading-none block ${theme === 'dark' ? 'text-white drop-shadow-2xl' : 'text-slate-900'
+                        <div className="flex flex-col items-center justify-center py-4">
+                            <div className="relative text-center w-full">
+                                <span className={`text-[72px] md:text-[80px] font-black tracking-tighter italic leading-none block w-full truncate px-2 ${theme === 'dark' ? 'text-white drop-shadow-2xl' : 'text-slate-900'
                                     }`}>
                                     {data.metadata.totalTests > 0
                                         ? Math.round((data.metadata.passed / data.metadata.totalTests) * 100)
                                         : '0'}%
                                 </span>
-                                <span className="text-xs font-black uppercase tracking-[0.3em] opacity-30 -mt-2 block">Accuracy Rate</span>
+                                <span className="text-[10px] font-black uppercase tracking-[0.3em] opacity-30 mt-2 block">Accuracy Rate</span>
                             </div>
                         </div>
 
@@ -375,6 +380,134 @@ const App: React.FC = () => {
 
                         {/* Drawer Body */}
                         <div className="flex-1 overflow-y-auto p-10 space-y-12">
+                            {/* Traceability Card (New) */}
+                            {selectedTest.error && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className={`p-8 border-2 rounded-[32px] overflow-hidden transition-all ${theme === 'dark' ? 'bg-[#161920] border-white/5' : 'bg-white border-slate-100 shadow-md'
+                                        }`}
+                                >
+                                    <div className="flex flex-col md:flex-row gap-8 justify-between">
+                                        <div className="space-y-2">
+                                            <div className="text-[10px] font-black uppercase tracking-widest opacity-30 italic">Spec File</div>
+                                            <div className="text-sm font-bold flex items-center gap-2">
+                                                <ExternalLink className="w-4 h-4 text-purple-500" />
+                                                {selectedTest.error.specFile || 'N/A'}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="text-[10px] font-black uppercase tracking-widest opacity-30 italic">Location</div>
+                                            <div className="text-sm font-bold text-red-400">
+                                                {selectedTest.error.lineNumber ? `Line ${selectedTest.error.lineNumber}:${selectedTest.error.columnNumber}` : 'Unknown Location'}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="text-[10px] font-black uppercase tracking-widest opacity-30 italic">Failed Step</div>
+                                            <div className="text-sm font-bold underline decoration-red-500/50 decoration-2 underline-offset-4">
+                                                {selectedTest.error.failedStepName || 'N/A'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+
+                            {/* AI Forensics Card (Enhanced) */}
+                            {selectedTest.error?.aiAnalysis && (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className={`p-10 border-2 rounded-[40px] relative overflow-hidden transition-all shadow-xl ${theme === 'dark' ? 'bg-purple-500/[0.04] border-purple-500/10 text-white' : 'bg-white border-purple-100 shadow-purple-500/5 text-slate-900'
+                                        }`}
+                                >
+                                    {/* Flakiness Badge (New) */}
+                                    {selectedTest.error.aiAnalysis.flakinessAnalysis?.isLikelyFlaky && (
+                                        <div className="absolute top-8 right-8 px-4 py-1.5 bg-orange-500/20 border border-orange-500/30 rounded-full flex items-center gap-2 text-[10px] font-black text-orange-400 uppercase tracking-widest">
+                                            <Activity className="w-3.5 h-3.5" /> Stability Risk
+                                        </div>
+                                    )}
+
+                                    <div className="relative space-y-10">
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <div className="w-1 h-3 bg-purple-500 rounded-full" />
+                                                <span className="text-[11px] font-black uppercase tracking-[0.3em] text-purple-500 italic">PlayVision Intelligence v2.0</span>
+                                            </div>
+                                            <h4 className="text-2xl font-black italic tracking-tight">AI Root Cause Analysis</h4>
+                                            <p className="mt-4 text-base leading-relaxed opacity-70 font-medium">{selectedTest.error.aiAnalysis.rootCause}</p>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="bg-purple-500/5 border border-purple-500/10 rounded-3xl p-8 space-y-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 bg-purple-500 rounded-xl flex items-center justify-center text-white font-black italic shadow-lg shadow-purple-500/20">
+                                                        Fix
+                                                    </div>
+                                                    <h5 className="font-black uppercase tracking-widest text-xs opacity-80">Suggested Solution</h5>
+                                                </div>
+                                                <p className="text-sm font-medium leading-relaxed opacity-80">{selectedTest.error.aiAnalysis.suggestion}</p>
+                                            </div>
+
+                                            {selectedTest.error.aiAnalysis.flakinessAnalysis && (
+                                                <div className="bg-orange-500/5 border border-orange-500/10 rounded-3xl p-8 space-y-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 bg-orange-500/20 rounded-xl flex items-center justify-center text-orange-500 font-black italic">
+                                                            S
+                                                        </div>
+                                                        <h5 className="font-black uppercase tracking-widest text-xs opacity-80">Stability Analysis</h5>
+                                                    </div>
+                                                    <p className="text-xs font-medium leading-relaxed opacity-60 italic">{selectedTest.error.aiAnalysis.flakinessAnalysis.reason}</p>
+                                                    <div className="text-[10px] bg-orange-500/10 p-2 rounded-lg text-orange-400 font-bold border border-orange-500/10">
+                                                        {selectedTest.error.aiAnalysis.flakinessAnalysis.recommendation}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Script Improvement Suggestions (New) */}
+                                        {selectedTest.error.aiAnalysis.scriptImprovements && (
+                                            <div className="space-y-6">
+                                                <h5 className="font-black uppercase tracking-widest text-[10px] opacity-30 flex items-center gap-2">
+                                                    <Bot className="w-3 h-3" /> Script Improvement Opportunities
+                                                </h5>
+                                                <div className="grid grid-cols-1 gap-4">
+                                                    {selectedTest.error.aiAnalysis.scriptImprovements.map((improvement, i) => (
+                                                        <div key={i} className={`p-6 rounded-[24px] border border-dashed ${theme === 'dark' ? 'bg-white/[0.02] border-white/10' : 'bg-slate-50 border-slate-200'}`}>
+                                                            <div className="flex items-center gap-3 mb-3">
+                                                                <span className="px-2.5 py-1 bg-purple-500/10 text-purple-500 text-[9px] font-black uppercase rounded-lg border border-purple-500/10">{improvement.type}</span>
+                                                                <span className="text-[10px] font-bold opacity-40">{improvement.reason}</span>
+                                                            </div>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                                <div className="space-y-1">
+                                                                    <div className="text-[9px] uppercase font-black opacity-20">Current</div>
+                                                                    <code className="text-[11px] block p-3 bg-red-500/5 rounded-xl border border-red-500/10 truncate">{improvement.current}</code>
+                                                                </div>
+                                                                <div className="space-y-1">
+                                                                    <div className="text-[9px] uppercase font-black opacity-20">Suggested</div>
+                                                                    <code className="text-[11px] block p-3 bg-green-500/5 rounded-xl border border-green-500/10 truncate">{improvement.suggested}</code>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {selectedTest.error.aiAnalysis.fixExample && (
+                                            <div className="space-y-4">
+                                                <h5 className="font-black uppercase tracking-widest text-[10px] opacity-30 flex items-center gap-2">
+                                                    <ChevronRight className="w-3 h-3" /> Implementation Pattern
+                                                </h5>
+                                                <div className={`p-8 rounded-[32px] font-mono text-xs overflow-x-auto border-2 shadow-inner leading-relaxed ${theme === 'dark' ? 'bg-[#090b0e] border-white/5 text-purple-300' : 'bg-[#f1f5f9] border-slate-200 text-purple-700'
+                                                    }`}>
+                                                    {selectedTest.error.aiAnalysis.fixExample}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            )}
+
                             {/* Media Assets Section */}
                             {selectedTest.attachments.length > 0 && (
                                 <div className="space-y-6">
@@ -440,65 +573,6 @@ const App: React.FC = () => {
                                 </div>
                             )}
 
-                            {/* AI Forensics Card */}
-                            {selectedTest.error?.aiAnalysis && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className={`p-10 border-2 rounded-[40px] relative overflow-hidden transition-all shadow-xl ${theme === 'dark' ? 'bg-purple-500/[0.04] border-purple-500/10 text-white' : 'bg-white border-purple-100 shadow-purple-500/5 text-slate-900'
-                                        }`}
-                                >
-                                    <div className="absolute top-0 right-0 p-8">
-                                        <Bot className="w-12 h-12 text-purple-500/20 rotate-12" />
-                                    </div>
-
-                                    <div className="relative space-y-8">
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-4">
-                                                <div className="w-1 h-3 bg-purple-500 rounded-full" />
-                                                <span className="text-[11px] font-black uppercase tracking-[0.3em] text-purple-500 italic">PlayVision Intelligence</span>
-                                            </div>
-                                            <h4 className="text-2xl font-black italic tracking-tight">Root Cause Analysis</h4>
-                                            <p className="mt-4 text-base leading-relaxed opacity-70 font-medium">{selectedTest.error.aiAnalysis.rootCause}</p>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div className="bg-purple-500/5 border border-purple-500/10 rounded-3xl p-8 space-y-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 bg-purple-500 rounded-xl flex items-center justify-center text-white font-black italic shadow-lg shadow-purple-500/20">
-                                                        Fix
-                                                    </div>
-                                                    <h5 className="font-black uppercase tracking-widest text-xs opacity-80">Proposed Solution</h5>
-                                                </div>
-                                                <p className="text-sm font-medium leading-relaxed opacity-80">{selectedTest.error.aiAnalysis.suggestion}</p>
-                                            </div>
-
-                                            <div className="bg-white/[0.03] border border-white/5 rounded-3xl p-8 space-y-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center font-black italic">
-                                                        !
-                                                    </div>
-                                                    <h5 className="font-black uppercase tracking-widest text-xs opacity-80">Business Impact</h5>
-                                                </div>
-                                                <p className="text-sm font-medium leading-relaxed opacity-60 italic">{selectedTest.error.aiAnalysis.impact}</p>
-                                            </div>
-                                        </div>
-
-                                        {selectedTest.error.aiAnalysis.fixExample && (
-                                            <div className="space-y-4">
-                                                <h5 className="font-black uppercase tracking-widest text-[10px] opacity-30 flex items-center gap-2">
-                                                    <ChevronRight className="w-3 h-3" /> Fix Implementation Pattern
-                                                </h5>
-                                                <div className={`p-8 rounded-[32px] font-mono text-xs overflow-x-auto border-2 shadow-inner leading-relaxed ${theme === 'dark' ? 'bg-[#090b0e] border-white/5 text-purple-300' : 'bg-[#f1f5f9] border-slate-200 text-purple-700'
-                                                    }`}>
-                                                    {selectedTest.error.aiAnalysis.fixExample}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </motion.div>
-                            )}
-
                             {/* Error Details */}
                             {selectedTest.error && (
                                 <div className="space-y-6">
@@ -508,13 +582,17 @@ const App: React.FC = () => {
                                     </div>
                                     <div className={`p-8 border-2 rounded-[32px] font-mono text-sm leading-relaxed overflow-x-auto transition-all ${theme === 'dark' ? 'bg-red-500/[0.03] border-red-500/10 text-red-100/70' : 'bg-red-50/50 border-red-100 text-red-700 shadow-sm'
                                         }`}>
-                                        <div className="text-red-400 font-bold mb-4 border-b border-red-500/10 pb-4">{selectedTest.error.message.split('\n')[0]}</div>
-                                        {selectedTest.error.stack}
+                                        <div className="text-red-400 font-bold mb-4 border-b border-red-500/10 pb-4">
+                                            {stripAnsi(selectedTest.error.message.split('\n')[0])}
+                                        </div>
+                                        <div className="whitespace-pre scrollbar-thin scrollbar-thumb-white/10">
+                                            {stripAnsi(selectedTest.error.stack)}
+                                        </div>
                                     </div>
                                 </div>
                             )}
 
-                            {/* Steps Timeline */}
+                            {/* Steps Timeline (Enhanced Visuals) */}
                             <div className="space-y-8">
                                 <div className="flex items-center justify-between px-2">
                                     <h3 className="text-[11px] font-black uppercase tracking-[0.3em] opacity-40 italic">Execution Sequence</h3>
@@ -525,10 +603,10 @@ const App: React.FC = () => {
                                     {selectedTest.steps.map((step, idx) => (
                                         <div
                                             key={idx}
-                                            className={`flex items-start gap-6 p-6 rounded-[32px] border-2 transition-all ${theme === 'dark'
-                                                    ? 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]'
-                                                    : 'bg-white border-slate-100 shadow-sm hover:border-purple-200'
-                                                }`}
+                                            className={`flex items-start gap-6 p-6 rounded-[32px] border-2 transition-all ${step.status === 'failed' 
+                                                ? (theme === 'dark' ? 'bg-red-500/5 border-red-500/30 ring-4 ring-red-500/5' : 'bg-red-50 border-red-200 ring-4 ring-red-100')
+                                                : (theme === 'dark' ? 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04]' : 'bg-white border-slate-100 shadow-sm hover:border-purple-200')
+                                            }`}
                                         >
                                             <div className={`w-12 h-12 shrink-0 rounded-[20px] flex items-center justify-center font-black mt-1 text-base ${step.status === 'passed' ? 'bg-green-500/20 text-green-500 shadow-inner' : 'bg-red-500/20 text-red-500'
                                                 }`}>
@@ -545,7 +623,11 @@ const App: React.FC = () => {
                                                     <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg ${theme === 'dark' ? 'bg-white/5 text-white/30' : 'bg-slate-100 text-slate-400'
                                                         }`}>{step.category}</span>
                                                     <span className={`w-1.5 h-1.5 rounded-full ${step.status === 'passed' ? 'bg-green-500' : 'bg-red-500'}`} />
-                                                    {step.error && <span className="text-[11px] text-red-400 font-bold truncate max-w-sm"> &middot; {step.error}</span>}
+                                                    {step.error && (
+                                                        <span className="text-[11px] text-red-400 font-bold truncate max-w-sm">
+                                                            &middot; {stripAnsi(step.error)}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

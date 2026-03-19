@@ -11,17 +11,17 @@ import { OpenAIAnalyzer } from './openai-analyzer';
 export class OllamaAnalyzer extends BaseAIAnalyzer {
     private readonly OLLAMA_HOST = 'localhost';
     private readonly OLLAMA_PORT = 11434;
-    private readonly MODEL = 'phi3:mini'; // default model
+    private readonly MODEL = 'llama3.2:1b'; // lightweight model
     private initialized = false;
     private fallbackAnalyzer: OpenAIAnalyzer | null = null;
 
     async initialize(): Promise<void> {
         if (this.initialized) return;
 
-        console.log(`Checking connection to Ollama (${this.OLLAMA_HOST}:${this.OLLAMA_PORT})...`);
+        console.log(`Checking connection to Ollama (${this.OLLAMA_HOST}:${this.OLLAMA_PORT}) with model ${this.MODEL}...`);
         try {
             await this.checkOllamaStatus();
-            console.log('✅ Ollama connection established');
+            console.log(`✅ Ollama connection established with ${this.MODEL}`);
             this.initialized = true;
         } catch (error) {
             console.warn('⚠️  Could not connect to Ollama. Will use OpenAI API as fallback.');
@@ -39,15 +39,23 @@ export class OllamaAnalyzer extends BaseAIAnalyzer {
     }
 
     async analyze(error: Error): Promise<AIAnalysis> {
-        const errorMessage = error.message;
-        const stackTrace = error.stack || '';
+        const errorMessage = this.stripAnsi(error.message);
+        const stackTrace = this.stripAnsi(error.stack || '');
         const prompt = this.createPrompt(errorMessage, stackTrace);
 
         // Try Ollama first if initialized
         if (this.initialized) {
             try {
                 const response = await this.queryOllama(prompt);
-                return this.parseResponse(response, errorMessage);
+                const analysis = this.parseResponse(response, errorMessage);
+                
+                // If parsing returned a generic "Unknown" or empty cause, use heuristics instead
+                if (analysis.category === 'Unknown Error' || analysis.rootCause === 'AI returned an empty response.') {
+                    console.log('💡 Ollama response was poor, falling back to heuristic analysis.');
+                    return this.performHeuristicAnalysis(error);
+                }
+                
+                return analysis;
             } catch (err) {
                 console.error('❌ Ollama analysis failed:', err);
                 console.log('🔄 Falling back to OpenAI API...');
@@ -72,30 +80,47 @@ export class OllamaAnalyzer extends BaseAIAnalyzer {
             return await this.fallbackAnalyzer.analyze(error);
         }
 
-        // Final fallback - return basic error info
-        return {
-            category: 'Unknown Error',
-            confidence: 0,
-            rootCause: errorMessage,
-            suggestion: 'AI analysis failed. Check logs.',
-        };
+        // Final fallback - perform heuristic analysis instead of returning generic info
+        console.log('💡 All specialized AI analyzers failed, performing heuristic analysis.');
+        return this.performHeuristicAnalysis(error);
     }
 
     private createPrompt(errorMessage: string, stackTrace: string): string {
-        const errorContext = stackTrace ? stackTrace.substring(0, 2000) : errorMessage.substring(0, 1000);
+        const errorContext = stackTrace ? stackTrace.substring(0, 3000) : errorMessage.substring(0, 1500);
 
-        return `You are a QA Automation expert. Analyze this Playwright/JavaScript error which occurred during test execution.
-        
-Error details:
+        return `You are a Senior Playwright Automation Expert. Your task is to perform a deep forensic analysis of a test failure.
+
+### ERROR TO ANALYZE:
 ${errorContext}
 
-Respond ONLY with a valid JSON object in the following format. Do not use Markdown notation like \`\`\`json.
+### MANDATORY STEPS:
+1. **Root Cause**: Explain exactly why the failure happened. Mention specific locators, URLs, or expected/actual values found in the log. Be thorough (2-3 sentences).
+2. **Category**: Choose EXACTLY ONE from this list: [Locator Not Found, Timeout Error, Network Error, Assertion Failure, Visibility Issue, Navigation Error, Page Crash].
+3. **Actionable Suggestions**: Provide a numbered list of 3 specific steps. Do NOT be generic. Tell the user exactly which line or component to check.
+4. **Fix Example**: Write a 1-3 line Playwright code snippet that directly addresses the specific failure.
+
+### RESPONSE FORMAT:
+- Return ONLY a raw JSON object. 
+- No commentary, no markdown code blocks, no backticks.
+- Pick ONE category, do NOT return the whole list.
+- Use "\\n" for newlines inside JSON string values.
+- **CRITICAL**: Suggestion and Fix Example must be strings.
+- **CRITICAL**: Use SINGLE QUOTES inside your strings to avoid breaking the JSON. 
+  Example: "fixExample": "await page.locator('button').click();"
+- **CRITICAL**: Do NOT use variables or concatenation outside of quotes.
+  WRONG: "fixExample": "page.locator('" + var + "')"
+  RIGHT: "fixExample": "page.locator('selector-here')"
+
+### EXAMPLE OF GOOD JSON (Format only):
 {
-  "category": "one of [Selector Error, Timeout Error, Network Error, Assertion Error, Javascript Error]",
-  "rootCause": "Detailed explanation of why this error occurred. Explain the specific mismatch or failure condition clearly.",
-  "suggestion": "Step-by-step instructions on how to fix this. Provide 2-3 actionable bullets numbered 1, 2, 3.",
-  "fixExample": "Complete code snippet showing the corrected approach. Include necessary imports or context."
-}`;
+  "category": "Assertion Failure",
+  "confidence": 0.98,
+  "rootCause": "Detailed technical explanation of the specific failure found in the log.",
+  "suggestion": "1. Concrete step 1\\n2. Concrete step 2\\n3. Concrete step 3",
+  "fixExample": "await expect(page).toHaveTitle('Expected Title');"
+}
+
+### YOUR JSON:`;
     }
 
     private async queryOllama(prompt: string): Promise<string> {
@@ -115,7 +140,7 @@ Respond ONLY with a valid JSON object in the following format. Do not use Markdo
                     'Content-Type': 'application/json',
                     'Content-Length': Buffer.byteLength(postData)
                 },
-                timeout: 60000 // 60 second timeout
+                timeout: 120000 // Increased to 120 seconds for phi3:mini
             };
 
             const req = http.request(options, (res) => {
@@ -143,7 +168,7 @@ Respond ONLY with a valid JSON object in the following format. Do not use Markdo
             });
 
             req.on('timeout', () => {
-                console.error('❌ Ollama request timeout (60s)');
+                console.error('❌ Ollama request timeout (120s)');
                 req.destroy();
                 reject(new Error('Ollama request timeout'));
             });
@@ -155,31 +180,32 @@ Respond ONLY with a valid JSON object in the following format. Do not use Markdo
 
     private parseResponse(response: string, originalError: string): AIAnalysis {
         try {
-            // Cleanup: sometimes models add markdown blocks or trailing chars
-            let jsonStr = response.replace(/```json/g, '').replace(/```/g, '').trim();
+            const result = this.robustParseJSON(response);
 
-            // Attempt to fix common JSON syntax errors if model output is messy
-            // 1. If it ends with incomplete json, try to close it (basic heuristic)
-            if (jsonStr.lastIndexOf('}') < jsonStr.lastIndexOf('"')) {
-                jsonStr += '"}';
+            let suggestion = result.suggestion || 'Check the error message manually.';
+            if (Array.isArray(suggestion)) {
+                suggestion = suggestion.join('\n');
             }
-
-            const result = JSON.parse(jsonStr);
 
             return {
                 category: result.category || 'Unknown Error',
-                confidence: 0.9, // Ollama doesn't return confidence easily, assume high if structured
+                confidence: result.confidence || 0.9,
                 rootCause: result.rootCause || originalError,
-                suggestion: result.suggestion || 'Check the error message manually.',
-                fixExample: result.fixExample
+                suggestion: suggestion,
+                fixExample: result.fixExample,
+                scriptImprovements: this.extractScriptImprovements(originalError, result.category || ''),
+                flakinessAnalysis: this.analyzeFlakiness(originalError, result.category || ''),
+                analyzedAt: Date.now(),
+                model: `Ollama ${this.MODEL}`
             };
         } catch (e) {
-            console.warn('⚠️ Failed to parse Ollama response as JSON. Raw response:', response);
+            console.warn('⚠️ Failed to parse Ollama response. Raw response:', response);
             return {
                 category: 'Unknown Error',
                 confidence: 0.5,
                 rootCause: originalError,
                 suggestion: 'Could not parse AI advice. ' + response.substring(0, 100) + '...',
+                analyzedAt: Date.now()
             };
         }
     }

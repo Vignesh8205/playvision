@@ -136,7 +136,11 @@ export class HuggingFaceAnalyzer extends BaseAIAnalyzer {
                         rootCause: this.extractRootCause(errorMessage, category),
                         suggestion: this.HF_SUGGESTIONS[category] || this.HF_SUGGESTIONS['Unknown Error'],
                         fixExample: this.HF_FIX_EXAMPLES[category],
-                        alternatives
+                        alternatives,
+                        scriptImprovements: this.extractScriptImprovements(errorMessage, category),
+                        flakinessAnalysis: this.analyzeFlakiness(errorMessage, category),
+                        analyzedAt: Date.now(),
+                        model: 'HuggingFace Xenova/distilbert-base-uncased-mnli'
                     };
 
                     this.cache.set(errorMessage, aiAnalysisResult);

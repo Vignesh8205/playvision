@@ -60,6 +60,14 @@ export interface ErrorDetails {
     message: string;
     stack: string;
     aiAnalysis?: AIAnalysis;
+    /** Exact line number where error occurred */
+    lineNumber?: number;
+    /** Exact column number where error occurred */
+    columnNumber?: number;
+    /** Path to the spec file */
+    specFile?: string;
+    /** The specific test step name that failed */
+    failedStepName?: string;
 }
 
 /**
@@ -92,6 +100,19 @@ export interface AIAnalysis {
     model?: string;
     /** Timestamp of the analysis */
     analyzedAt?: number;
+    /** AI-based suggestions to improve the script (selectors, waits, assertions) */
+    scriptImprovements?: {
+        type: 'selector' | 'wait' | 'assertion' | 'other';
+        current: string;
+        suggested: string;
+        reason: string;
+    }[];
+    /** Possible flakiness detection and stability improvements */
+    flakinessAnalysis?: {
+        isLikelyFlaky: boolean;
+        reason: string;
+        recommendation: string;
+    };
 }
 
 /**

@@ -5,26 +5,33 @@
         "Assertion Failure",
         "Network Error",
         "Visibility Issue",
+        "Navigation Error",
+        "Page Crash",
         "Unknown Error"
     ],
     "suggestions": {
-        "Locator Not Found": "Check if the selector is correct. Consider using getByRole(), getByTestId(), or getByText() for more reliable locators.",
-        "Timeout Error": "Increase the timeout value or add explicit wait conditions using waitFor() before interactions.",
-        "Assertion Failure": "Review the expected vs actual values. Ensure the assertion logic matches the test requirements.",
-        "Network Error": "Check network connectivity, API endpoints, or mock network requests in tests.",
-        "Visibility Issue": "Element may be hidden or obscured. Use waitForSelector() with visible: true or check CSS properties.",
-        "Unknown Error": "Review the error stack trace for more details. Consider adding debug logs."
+        "Locator Not Found": "Check if the selector is correct. Use page.pause() to inspect the DOM. Consider using getByRole(), getByTestId(), or getByText() for more resilient locators.",
+        "Timeout Error": "The action took too long. Increase the timeout value for this specific action or add 'await page.waitForLoadState('networkidle')' if it's a navigation issue.",
+        "Assertion Failure": "The page state did not match expectations. Check if the element changed or if data wasn't loaded yet. Try adding more specific assertions or logger statements.",
+        "Network Error": "The request failed or was refused. Verify API endpoints, check network logs in Playwright trace, or ensure mock servers are running.",
+        "Visibility Issue": "Element exists but is hidden, zero-sized, or obscured. Try 'element.scrollIntoViewIfNeeded()' or check for overlapping modals/overlays.",
+        "Navigation Error": "Navigation failed or was interrupted. Check the URL, network connectivity, and ensure no redirects are breaking the flow.",
+        "Page Crash": "The browser page or worker context crashed. This usually indicates high memory usage or a browser bug. Try reducing parallel workers.",
+        "Unknown Error": "No specific pattern matched. This might be a logic error or an unhandled edge case. Review the full stack trace and consider adding manual debug logs."
     },
     "fixExamples": {
         "Locator Not Found": "await page.getByRole('button', { name: 'Submit' }).click();",
-        "Timeout Error": "await page.waitForSelector('.element', { timeout: 10000 });",
-        "Visibility Issue": "await page.locator('.element').waitFor({ state: 'visible' });"
+        "Timeout Error": "await page.click('.btn', { timeout: 60000 });",
+        "Visibility Issue": "await page.locator('.element').waitFor({ state: 'visible' });",
+        "Assertion Failure": "await expect(page.locator('.status')).toBeVisible({ timeout: 10000 });"
     },
     "patterns": {
-        "Locator Not Found": "locator.*not found|element.*not found|selector.*not found",
-        "Timeout Error": "timeout.*exceeded|waiting.*timed out|timeout of \\d+ms exceeded",
-        "Assertion Failure": "expect.*to.*but.*received|assertion.*failed",
-        "Network Error": "net::ERR|fetch failed|ECONNREFUSED|network error",
-        "Visibility Issue": "not visible|hidden|obscured|element is not visible"
+        "Locator Not Found": "locator.*not found|element.*not found|selector.*not found|waiting for.*(to be visible|to be enabled)|could not find element",
+        "Timeout Error": "timeout.*exceeded|waiting.*timed out|timeout of \\d+ms exceeded|Navigation timeout",
+        "Assertion Failure": "expect.*(\\.to|failed)|assertion.*failed|actual.*expected|to be visible but was hidden|Expected:.*Received:",
+        "Network Error": "net::ERR|fetch failed|ECONNREFUSED|network error|DNS_PROBE_FINISHED",
+        "Visibility Issue": "not visible|hidden|obscured|element is not visible|is not clickable because another element obscures it",
+        "Navigation Error": "navigation failed|load.*failed|frame.*detached|navigating to.*failed",
+        "Page Crash": "page crashed|worker.*crashed|context.*closed"
     }
 }
