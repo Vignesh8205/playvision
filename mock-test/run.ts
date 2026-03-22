@@ -151,9 +151,13 @@ for (let i = 0; i < 15; i++) {
 
 const mockFolder = './mock-report-output';
 const renderer = new HTMLRenderer(mockFolder);
+const { ExportManager } = require('../src/core/export-manager');
+const exportManager = new ExportManager(mockFolder, { exportPdf: true, exportExcel: true } as any);
 
-renderer.generate(mockResults, mockMetadata).then(() => {
+renderer.generate(mockResults, mockMetadata).then(async () => {
     console.log(`Mock report successfully generated at ${mockFolder}/index.html`);
+    await exportManager.export(mockResults, mockMetadata);
+    console.log('Export tasks completed.');
 }).catch(err => {
     console.error('Failed to generate mock report', err);
 });

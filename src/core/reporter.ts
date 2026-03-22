@@ -1,9 +1,10 @@
-import { Reporter, TestCase, TestResult as PWTestResult, FullConfig, Suite, FullResult } from '@playwright/test/reporter';
+import type { Reporter, TestCase, TestResult as PWTestResult, FullConfig, Suite, FullResult } from '@playwright/test/reporter';
 import { PlayVisionConfig, ReportMetadata } from '../schema/types';
 import { EventCollector } from '../collector/event-collector';
 import { AssetCollector } from '../collector/asset-collector';
 import { DataSerializer } from './serializer';
 import { HTMLRenderer } from '../html/renderer';
+import { ExportManager } from './export-manager';
 import { AIMode } from '../ai';
 
 /**
@@ -16,6 +17,7 @@ export class PlayVisionReporter implements Reporter {
     private assetCollector: AssetCollector;
     private serializer: DataSerializer;
     private htmlRenderer: HTMLRenderer;
+    private exportManager: ExportManager;
     private metadata: ReportMetadata;
     private pendingTasks: Promise<void>[] = [];
 
@@ -25,7 +27,9 @@ export class PlayVisionReporter implements Reporter {
             screenshots: options.screenshots ?? true,
             videos: options.videos || 'retain-on-failure',
             aiAnalysis: options.aiAnalysis ?? true,
-            aiMode: options.aiMode || 'smart'
+            aiMode: options.aiMode || 'smart',
+            exportPdf: options.exportPdf ?? false,
+            exportExcel: options.exportExcel ?? false
         };
 
         const aiMode = this.config.aiMode as AIMode;
@@ -33,6 +37,7 @@ export class PlayVisionReporter implements Reporter {
         this.assetCollector = new AssetCollector(this.config.outputFolder);
         this.serializer = new DataSerializer(this.config.outputFolder);
         this.htmlRenderer = new HTMLRenderer(this.config.outputFolder);
+        this.exportManager = new ExportManager(this.config.outputFolder, this.config);
 
         this.metadata = {
             totalTests: 0,
@@ -90,6 +95,9 @@ export class PlayVisionReporter implements Reporter {
 
         // Generate HTML report
         await this.htmlRenderer.generate(results, this.metadata);
+
+        // Export to other formats (Excel, PDF)
+        await this.exportManager.export(results, this.metadata);
 
         console.log(`✅ Report generated: ${this.config.outputFolder}/index.html`);
         console.log(`📈 Summary: ${this.metadata.passed} passed, ${this.metadata.failed} failed, ${this.metadata.skipped} skipped`);

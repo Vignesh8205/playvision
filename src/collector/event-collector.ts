@@ -1,9 +1,10 @@
-import { TestCase, TestResult as PWTestResult } from '@playwright/test/reporter';
+import type { TestCase, TestResult as PWTestResult } from '@playwright/test/reporter';
 import { AIAnalysis, TestResult, TestStep } from '../schema/types';
 import { IEventCollector } from './interfaces';
 import { AIAnalyzerFactory, AIMode } from '../ai';
 import { sanitizeFilename } from '../utils/helpers';
 import * as path from 'path';
+import * as fs from 'fs';
 
 /**
  * Collects and manages test execution events
@@ -80,11 +81,23 @@ export class EventCollector implements IEventCollector {
             // Create relative path to the copied asset
             const relativePath = folder ? `assets/${folder}/${sanitizedTitle}-${index}${ext}` : att.path || '';
 
+            // Embed base64 for screenshots to prevent security errors during PDF export
+            let base64: string | undefined;
+            if (type === 'screenshot' && att.path && fs.existsSync(att.path)) {
+                try {
+                    const buffer = fs.readFileSync(att.path);
+                    base64 = `data:${att.contentType};base64,${buffer.toString('base64')}`;
+                } catch (e) {
+                    console.warn(`Failed to embed base64 for screenshot: ${att.path}`, e);
+                }
+            }
+
             return {
                 name: att.name || `attachment-${index}`,
                 type,
                 path: relativePath,
-                contentType: att.contentType
+                contentType: att.contentType,
+                base64
             };
         });
 

@@ -83,24 +83,26 @@ src/
 ├── core/
 │   ├── reporter.ts           # Main orchestrator
 │   ├── serializer.ts         # Data persistence
+│   ├── export-manager.ts     # PDF/Excel exports
 │   └── interfaces.ts         # Core interfaces
 ├── collector/
 │   ├── event-collector.ts    # Event management
 │   ├── asset-collector.ts    # Asset management
 │   └── interfaces.ts         # Collector interfaces
 ├── ai/
-│   ├── analyzer.ts           # AI analyzer factory
-│   ├── huggingface.ts        # HuggingFace implementation
-│   ├── rule-based.ts         # Rule-based fallback
+│   ├── factory.ts            # AI analyzer factory
+│   ├── base-analyzer.ts      # Common LLM logic & parsing
+│   ├── ollama-analyzer.ts    # local LLM implementation
+│   ├── openai-analyzer.ts    # OpenAI implementation
+│   ├── huggingface-analyzer.ts # HuggingFace implementation
+│   ├── rule-based-analyzer.ts # Primitive pattern matching
 │   └── interfaces.ts         # AI interfaces
 ├── html/
 │   ├── renderer.ts           # HTML generation
-│   ├── templates/            # HTML templates
 │   └── interfaces.ts         # Renderer interfaces
 ├── schema/
 │   └── types.ts              # Shared types
-└── utils/
-    └── helpers.ts            # Utility functions
+└── index.ts                  # Main entry point
 ```
 
 ## Key Patterns
@@ -108,10 +110,11 @@ src/
 ### 1. Factory Pattern
 ```typescript
 class AIAnalyzerFactory {
-  static create(mode: string): IAIAnalyzer {
+  static async create(mode: AIMode): Promise<IAIAnalyzer> {
     switch(mode) {
-      case 'smart': return new HuggingFaceAnalyzer();
-      case 'basic': return new RuleBasedAnalyzer();
+      case AIMode.PREMIUM: return new OllamaAnalyzer(); // With OpenAI fallback
+      case AIMode.SMART: return new HuggingFaceAnalyzer();
+      case AIMode.BASIC: return new RuleBasedAnalyzer();
       default: return new RuleBasedAnalyzer();
     }
   }
@@ -130,14 +133,16 @@ class ReportRenderer {
 }
 ```
 
-### 3. Builder Pattern
+### 3. Strategy Pattern (Export Management)
+Used for generating reports in different formats (PDF, Excel) without cluttering the main reporter logic.
+
 ```typescript
-// Fluent configuration
-const reporter = new PlayVisionReporterBuilder()
-  .withOutputFolder('reports')
-  .withAIMode('smart')
-  .withScreenshots(true)
-  .build();
+class ExportManager {
+  async export(results: TestResult[], metadata: ReportMetadata) {
+    if (this.config.exportExcel) await this.generateExcel(results);
+    if (this.config.exportPdf) await this.generatePdf();
+  }
+}
 ```
 
 ## Maintainability Features

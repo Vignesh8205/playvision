@@ -114,6 +114,8 @@ export interface PlayVisionConfig {
   videos: 'on' | 'off' | 'retain-on-failure';
   aiAnalysis: boolean;
   aiMode?: 'basic' | 'smart' | 'premium';
+  exportPdf?: boolean;
+  exportExcel?: boolean;
 }
 
 export interface TestResult {
@@ -191,12 +193,15 @@ import { AssetCollector } from '../collector/asset-collector';
 import { DataSerializer } from './serializer';
 import { HTMLRenderer } from '../html/renderer';
 
+import { ExportManager } from './export-manager';
+
 export class PlayVisionReporter implements Reporter {
   private config: PlayVisionConfig;
   private eventCollector: EventCollector;
   private assetCollector: AssetCollector;
   private serializer: DataSerializer;
   private htmlRenderer: HTMLRenderer;
+  private exportManager: ExportManager;
   private metadata: ReportMetadata;
 
   constructor(options: Partial<PlayVisionConfig> = {}) {
@@ -205,15 +210,16 @@ export class PlayVisionReporter implements Reporter {
       screenshots: options.screenshots ?? true,
       videos: options.videos || 'retain-on-failure',
       aiAnalysis: options.aiAnalysis ?? true,
-      aiMode: options.aiMode || 'smart'
+      aiMode: options.aiMode || 'smart',
+      exportPdf: options.exportPdf ?? false,
+      exportExcel: options.exportExcel ?? false
     };
 
-    this.eventCollector = new EventCollector();
+    this.eventCollector = new EventCollector(this.config.aiMode as any, this.config.aiAnalysis);
     this.assetCollector = new AssetCollector(this.config.outputFolder);
     this.serializer = new DataSerializer(this.config.outputFolder);
     this.htmlRenderer = new HTMLRenderer(this.config.outputFolder);
-    
-    this.metadata = {
+    this.exportManager = new ExportManager(this.config.outputFolder, this.config);
       totalTests: 0,
       passed: 0,
       failed: 0,
@@ -261,6 +267,9 @@ export class PlayVisionReporter implements Reporter {
 
     // Generate HTML
     await this.htmlRenderer.generate(results, this.metadata);
+
+    // Export to other formats
+    await this.exportManager.export(results, this.metadata);
 
     console.log(`✅ Report generated: ${this.config.outputFolder}/index.html`);
   }

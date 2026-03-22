@@ -95,7 +95,7 @@ ${errorContext}
 
 ### MANDATORY STEPS:
 1. **Root Cause**: Explain exactly why the failure happened. Mention specific locators, URLs, or expected/actual values found in the log. Be thorough (2-3 sentences).
-2. **Category**: Choose EXACTLY ONE: [Locator Not Found, Timeout Error, Network Error, Assertion Failure, Visibility Issue, Navigation Error, Page Crash].
+2. **Category**: Choose EXACTLY ONE from this list: [${this.ERROR_CATEGORIES.join(', ')}].
 3. **Actionable Suggestions**: Provide a numbered list of 3-4 specific steps. Do NOT be generic. Tell the user exactly which line or component to check.
 4. **Fix Example**: Write a complete runnable Playwright code snippet that directly addresses the specific failure.
 
