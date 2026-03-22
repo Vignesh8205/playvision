@@ -15,14 +15,41 @@ import {
     MinusCircle,
     Image as ImageIcon,
     Play,
-    ExternalLink
+    ExternalLink,
+    FileSpreadsheet,
+    FileText,
+    Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { TestResult, ReportMetadata, Attachment, TestStep } from './types';
 
 // Utility to strip ANSI escape codes
 const stripAnsi = (str: string = '') => {
     return str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+};
+
+const getBase64Image = (attachment: Attachment): Promise<string> => {
+    if (attachment.base64) {
+        return Promise.resolve(attachment.base64);
+    }
+
+    const url = attachment.path;
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+        img.src = url;
+    });
 };
 
 // Global data from the reporter
@@ -51,6 +78,7 @@ const App: React.FC = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [selectedTestId, setSelectedTestId] = useState<string | null>(null);
     const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+    const [exportStatus, setExportStatus] = useState<string | null>(null);
 
     // Initialize theme
     useEffect(() => {
@@ -90,6 +118,115 @@ const App: React.FC = () => {
     const selectedTest = useMemo(() =>
         data.results.find(r => r.testId === selectedTestId),
         [selectedTestId]);
+
+    const handleExportExcel = () => {
+        setExportStatus('Generating Excel...');
+        const exportData = filteredResults.map(r => ({
+            'Test ID': r.testId,
+            'Suite': r.suite,
+            'Title': r.title,
+            'Status': r.status,
+            'Duration (s)': (r.duration / 1000).toFixed(2),
+            'Error': r.error?.message ? stripAnsi(r.error.message.split('\n')[0]) : '',
+            'AI Category': r.error?.aiAnalysis?.category || '',
+            'AI Root Cause': r.error?.aiAnalysis?.rootCause || '',
+            'AI Suggestion': r.error?.aiAnalysis?.suggestion || ''
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Test Results');
+        
+        const fileName = `PlayVision_Export_${statusFilter}_${new Date().getTime()}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        setExportStatus('Excel Exported Successfully!');
+        setTimeout(() => setExportStatus(null), 3000);
+    };
+
+    const handleExportPdf = async () => {
+        setExportStatus('Generating PDF with Screenshots...');
+        console.log('🚀 PDF Export started');
+        const doc = new jsPDF();
+        
+        // Add Header
+        doc.setFontSize(22);
+        doc.setTextColor(126, 34, 206); // bg-purple-600
+        doc.text('PlayVision Executive Summary', 14, 22);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+        doc.text(`Filter Applied: ${statusFilter.toUpperCase()}`, 14, 35);
+        doc.text(`Total Tests Matching: ${filteredResults.length}`, 14, 40);
+
+        // Add Table
+        const tableBody = filteredResults.map(r => [
+            r.suite,
+            r.title,
+            r.status.toUpperCase(),
+            (r.duration / 1000).toFixed(1) + 's',
+            r.error?.aiAnalysis?.category || (r.error ? 'Failure' : '-')
+        ]);
+
+        autoTable(doc, {
+            startY: 50,
+            head: [['Suite', 'Test Title', 'Status', 'Duration', 'AI Category']],
+            body: tableBody,
+            headStyles: { fillColor: [126, 34, 206] },
+            alternateRowStyles: { fillColor: [245, 245, 245] },
+            margin: { top: 50 },
+            styles: { fontSize: 8, cellPadding: 3 }
+        });
+
+        // Add Failure Evidence Section
+        const failedWithScreenshots = filteredResults.filter(r => 
+            (r.status === 'failed' || r.status === 'timedOut' || r.status === 'flaky') && 
+            r.attachments.some(a => a.type === 'screenshot')
+        );
+
+        console.log(`🔍 Found ${failedWithScreenshots.length} failed tests with screenshots`);
+
+        if (failedWithScreenshots.length > 0) {
+            doc.addPage();
+            doc.setFontSize(18);
+            doc.setTextColor(126, 34, 206);
+            doc.text('Failure Evidence (Screenshots)', 14, 22);
+
+            let currentY = 35;
+            for (const test of failedWithScreenshots) {
+                const screenshot = test.attachments.find(a => a.type === 'screenshot');
+                if (screenshot) {
+                    if (currentY > 230) {
+                        doc.addPage();
+                        currentY = 22;
+                    }
+
+                    doc.setFontSize(10);
+                    doc.setTextColor(20, 20, 20);
+                    doc.text(`${test.suite} > ${test.title}`, 14, currentY);
+                    
+                    try {
+                        const base64 = await getBase64Image(screenshot);
+                        const imgWidth = 180;
+                        const imgHeight = 100;
+                        doc.addImage(base64, 'PNG', 14, currentY + 5, imgWidth, imgHeight);
+                        console.log(`✅ Included screenshot for: ${test.title}`);
+                        currentY += imgHeight + 20;
+                    } catch (err) {
+                        console.error('Failed to add screenshot to PDF:', err);
+                        doc.setTextColor(180, 0, 0);
+                        doc.text('[Error: Could not load screenshot]', 14, currentY + 10);
+                        currentY += 20;
+                    }
+                }
+            }
+        }
+
+        const fileName = `PlayVision_Summary_${statusFilter}_${new Date().getTime()}.pdf`;
+        doc.save(fileName);
+        setExportStatus('Summary Exported Successfully!');
+        setTimeout(() => setExportStatus(null), 3000);
+    };
 
     return (
         <div className={`min-h-screen font-sans selection:bg-purple-500/30 transition-colors duration-300 ${theme === 'dark' ? 'bg-[#0f1115] text-[#e2e4e9]' : 'bg-[#f8fafc] text-[#1e293b]'
@@ -138,6 +275,12 @@ const App: React.FC = () => {
             </header>
 
             <main className="max-w-[1600px] mx-auto px-6 py-10 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10">
+                {/* Export Status Notification */}
+                {exportStatus && (
+                    <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 bg-purple-600 text-white rounded-full shadow-2xl font-black text-xs uppercase tracking-widest animate-bounce">
+                        ✨ {exportStatus}
+                    </div>
+                )}
                 {/* Left Content: Test List */}
                 <section className="space-y-8">
                     <div className="flex flex-col md:flex-row gap-6 items-center justify-between">
@@ -156,26 +299,50 @@ const App: React.FC = () => {
                             />
                         </div>
 
-                        <div className={`flex gap-1.5 p-1.5 rounded-2xl border ${theme === 'dark' ? 'bg-[#161920] border-white/5' : 'bg-slate-100 border-slate-200'
-                            }`}>
-                            {[
-                                { id: 'all', label: 'All', icon: <Activity className="w-3.5 h-3.5" /> },
-                                { id: 'passed', label: 'Passed', color: 'text-green-500', icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
-                                { id: 'failed', label: 'Failed', color: 'text-red-500', icon: <XCircle className="w-3.5 h-3.5" /> },
-                                { id: 'flaky', label: 'Flaky', color: 'text-orange-500', icon: <AlertTriangle className="w-3.5 h-3.5" /> }
-                            ].map(btn => (
+                        <div className="flex gap-4">
+                            <div className={`flex gap-1.5 p-1.5 rounded-2xl border ${theme === 'dark' ? 'bg-[#161920] border-white/5' : 'bg-slate-100 border-slate-200'
+                                }`}>
+                                {[
+                                    { id: 'all', label: 'All', icon: <Activity className="w-3.5 h-3.5" /> },
+                                    { id: 'passed', label: 'Passed', color: 'text-green-500', icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
+                                    { id: 'failed', label: 'Failed', color: 'text-red-500', icon: <XCircle className="w-3.5 h-3.5" /> },
+                                    { id: 'flaky', label: 'Flaky', color: 'text-orange-500', icon: <AlertTriangle className="w-3.5 h-3.5" /> }
+                                ].map(btn => (
+                                    <button
+                                        key={btn.id}
+                                        onClick={() => setStatusFilter(btn.id)}
+                                        className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${statusFilter === btn.id
+                                                ? (theme === 'dark' ? 'bg-white/10 text-white shadow-lg shadow-black/20' : 'bg-white text-slate-900 shadow-md')
+                                                : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 opacity-60 hover:opacity-100'
+                                            }`}
+                                    >
+                                        {btn.icon}
+                                        {btn.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <div className={`flex gap-1.5 p-1.5 rounded-2xl border ${theme === 'dark' ? 'bg-[#161920] border-white/5' : 'bg-slate-100 border-slate-200'
+                                }`}>
                                 <button
-                                    key={btn.id}
-                                    onClick={() => setStatusFilter(btn.id)}
-                                    className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${statusFilter === btn.id
-                                            ? (theme === 'dark' ? 'bg-white/10 text-white shadow-lg shadow-black/20' : 'bg-white text-slate-900 shadow-md')
-                                            : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 opacity-60 hover:opacity-100'
+                                    onClick={handleExportExcel}
+                                    title="Export to Excel"
+                                    className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${theme === 'dark' ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20' : 'bg-green-50 text-green-600 hover:bg-green-100'
                                         }`}
                                 >
-                                    {btn.icon}
-                                    {btn.label}
+                                    <FileSpreadsheet className="w-4 h-4" />
+                                    <span className="hidden xl:inline">Excel</span>
                                 </button>
-                            ))}
+                                <button
+                                    onClick={handleExportPdf}
+                                    title="Export to PDF"
+                                    className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${theme === 'dark' ? 'bg-purple-500/10 text-purple-500 hover:bg-purple-500/20' : 'bg-purple-50 text-purple-600 hover:bg-purple-100'
+                                        }`}
+                                >
+                                    <FileText className="w-4 h-4" />
+                                    <span className="hidden xl:inline">Summary</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 

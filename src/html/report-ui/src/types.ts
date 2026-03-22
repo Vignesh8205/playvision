@@ -51,6 +51,7 @@ export interface Attachment {
     type: 'screenshot' | 'video' | 'trace';
     path: string;
     contentType: string;
+    base64?: string;
 }
 
 /**

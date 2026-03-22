@@ -1,4 +1,4 @@
-import { TestCase, TestResult as PWTestResult } from '@playwright/test/reporter';
+import type { TestCase, TestResult as PWTestResult } from '@playwright/test/reporter';
 import { IAssetCollector } from './interfaces';
 import * as fs from 'fs';
 import * as path from 'path';

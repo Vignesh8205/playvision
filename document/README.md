@@ -36,10 +36,12 @@ npm test
 
 - ✅ **Beautiful HTML Reports** - Modern, responsive UI with dark mode
 - 🤖 **AI Error Analysis** - Automatic error categorization and suggestions
-- 🔄 **Intelligent Fallback** - Ollama → OpenAI API → Rule-based
-- 📸 **Rich Attachments** - Screenshots, videos, and traces
+- 🔄 **Intelligent Fallback** - Ollama → OpenAI API → Heuristic Pattern Matcher
+- 📄 **Executive PDF Summary** - Professional PDF reports for stakeholders
+- 📊 **Excel Failure Data** - Detailed failure analysis in spreadsheet format
+- 📸 **Rich Attachments** - Screenshots (with base64 embedding for PDFs), videos, and traces
 - 🎨 **Professional Design** - Compact, clean typography
-- ⚡ **Fast & Reliable** - Optimized performance
+- ⚡ **Fast & Reliable** - Optimized performance with background AI tasks
 
 ## 🛠️ Configuration
 

@@ -93,11 +93,11 @@ export class OllamaAnalyzer extends BaseAIAnalyzer {
 ### ERROR TO ANALYZE:
 ${errorContext}
 
-### MANDATORY STEPS:
-1. **Root Cause**: Explain exactly why the failure happened. Mention specific locators, URLs, or expected/actual values found in the log. Be thorough (2-3 sentences).
-2. **Category**: Choose EXACTLY ONE from this list: [Locator Not Found, Timeout Error, Network Error, Assertion Failure, Visibility Issue, Navigation Error, Page Crash].
-3. **Actionable Suggestions**: Provide a numbered list of 3 specific steps. Do NOT be generic. Tell the user exactly which line or component to check.
-4. **Fix Example**: Write a 1-3 line Playwright code snippet that directly addresses the specific failure.
+        ### MANDATORY STEPS:
+        1. **Root Cause**: Explain exactly why the failure happened. Mention specific locators, URLs, or expected/actual values found in the log. Be thorough (2-3 sentences).
+        2. **Category**: Choose EXACTLY ONE from this list: [${this.ERROR_CATEGORIES.join(', ')}].
+        3. **Actionable Suggestions**: Provide a numbered list of 3 specific steps. Do NOT be generic. Tell the user exactly which line or component to check.
+        4. **Fix Example**: Write a 1-3 line Playwright code snippet that directly addresses the specific failure.
 
 ### RESPONSE FORMAT:
 - Return ONLY a raw JSON object. 

@@ -12,6 +12,10 @@ export interface PlayVisionConfig {
     aiAnalysis: boolean;
     /** AI analysis mode */
     aiMode?: 'basic' | 'smart' | 'premium';
+    /** Enable PDF Executive Summary export */
+    exportPdf?: boolean;
+    /** Enable Excel failure data export */
+    exportExcel?: boolean;
 }
 
 /**
@@ -51,6 +55,7 @@ export interface Attachment {
     type: 'screenshot' | 'video' | 'trace';
     path: string;
     contentType: string;
+    base64?: string;
 }
 
 /**
