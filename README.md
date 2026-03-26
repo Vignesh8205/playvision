@@ -93,6 +93,19 @@ OPENAI_MODEL=gpt-4o
 ```
 *Note: The `.env` file is gitignored to protect your credentials.*
 
+## 🤝 Contributing (Releasing)
+
+This project uses **Semantic Release** for automated NPM publishing and version management.
+
+1. **Create a Feature Branch**: Branch off `master` (e.g., `feat/new-ui`, `fix/parsing-error`).
+2. **Raise a PR**: Open a Pull Request to `master`. A GitHub Action will automatically run to build and validate your code.
+3. **Merge with Conventional Commits**: When merging into `master`, strictly use the **Conventional Commits** format for your commit message. This determines the next version number.
+   - `feat: added summary feature` -> **Minor Release** (1.1.0)
+   - `fix: resolved crashing bug` -> **Patch Release** (1.0.1)
+   - `feat!: completely redesigned API` -> **Major Release** (2.0.0)
+
+Once merged to `master`, a GitHub Action will automatically bump the version, generate release notes, and publish to NPM.
+
 ---
 
 ## 📝 License
