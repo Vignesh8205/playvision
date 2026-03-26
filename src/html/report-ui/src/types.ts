@@ -29,6 +29,17 @@ export interface TestResult {
     steps: TestStep[];
     attachments: Attachment[];
     error?: ErrorDetails;
+    /** Source location of the test in the spec file */
+    sourceLocation?: {
+        /** Absolute path to the spec file */
+        file: string;
+        /** Line number where the test is defined */
+        line: number;
+        /** Basename of the spec file, e.g. login.spec.ts */
+        fileName: string;
+        /** Path relative to project root, e.g. tests/auth/login.spec.ts */
+        relativePath: string;
+    };
 }
 
 /**
@@ -130,3 +141,4 @@ export interface ReportMetadata {
     startTime: number;
     endTime: number;
 }
+    
