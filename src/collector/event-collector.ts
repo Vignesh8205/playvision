@@ -24,6 +24,15 @@ export class EventCollector implements IEventCollector {
         const testId = this.generateStableTestId(test);
 
         if (!this.results.has(testId)) {
+            // Build sourceLocation from test.location
+            const sourceFile = test.location?.file;
+            const sourceLocation = sourceFile ? {
+                file: sourceFile,
+                line: test.location.line,
+                fileName: path.basename(sourceFile),
+                relativePath: path.relative(process.cwd(), sourceFile).replace(/\\/g, '/')
+            } : undefined;
+
             this.results.set(testId, {
                 testId,
                 title: test.title,
@@ -34,7 +43,8 @@ export class EventCollector implements IEventCollector {
                 duration: 0,
                 retries: 0,
                 steps: [],
-                attachments: []
+                attachments: [],
+                sourceLocation
             });
         } else {
             // Unset the error if retry starts, so if it fails again, it populates fresh.

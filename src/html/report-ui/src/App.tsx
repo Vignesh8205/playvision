@@ -18,7 +18,8 @@ import {
     ExternalLink,
     FileSpreadsheet,
     FileText,
-    Download
+    Download,
+    FileCode
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx';
@@ -98,8 +99,11 @@ const App: React.FC = () => {
 
     const filteredResults = useMemo(() => {
         return data.results.filter((r) => {
-            const matchSearch = r.title.toLowerCase().includes(search.toLowerCase()) ||
-                r.suite.toLowerCase().includes(search.toLowerCase());
+            const q = search.toLowerCase();
+            const matchSearch = r.title.toLowerCase().includes(q) ||
+                r.suite.toLowerCase().includes(q) ||
+                (r.sourceLocation?.fileName?.toLowerCase().includes(q) ?? false) ||
+                (r.sourceLocation?.relativePath?.toLowerCase().includes(q) ?? false);
             const matchStatus = statusFilter === 'all' || r.status === statusFilter;
             return matchSearch && matchStatus;
         });
@@ -385,6 +389,33 @@ const App: React.FC = () => {
                                             </div>
                                             <h3 className={`font-bold transition-colors text-lg truncate ${theme === 'dark' ? 'group-hover:text-white' : 'group-hover:text-slate-900'
                                                 }`}>{test.title}</h3>
+
+                                            {/* Source Location Row */}
+                                            <div className="flex items-center gap-3 mt-2 flex-wrap">
+                                                {test.sourceLocation ? (
+                                                    <>
+                                                        <span
+                                                            title={test.sourceLocation.file}
+                                                            className={`flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all ${theme === 'dark' ? 'bg-white/5 border-white/5 text-white/60' : 'bg-slate-100 border-slate-200 text-slate-600'}`}
+                                                        >
+                                                            <FileCode className="w-3 h-3 text-purple-400 shrink-0" />
+                                                            {test.sourceLocation.fileName}{test.sourceLocation.line ? `:${test.sourceLocation.line}` : ''}
+                                                        </span>
+                                                        <span className={`text-[10px] font-medium opacity-40 truncate max-w-[200px]`}>
+                                                            📁 {test.sourceLocation.relativePath.replace(test.sourceLocation.fileName, '')}
+                                                        </span>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); window.open(`vscode://file/${test.sourceLocation!.file}:${test.sourceLocation!.line}`, '_self'); }}
+                                                            title={`Open in VS Code: ${test.sourceLocation.file}:${test.sourceLocation.line}`}
+                                                            className={`flex items-center gap-1 text-[10px] font-black uppercase px-2 py-1 rounded-lg border opacity-0 group-hover:opacity-100 transition-all ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'}`}
+                                                        >
+                                                            <ExternalLink className="w-2.5 h-2.5" /> VS Code
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <span className="text-[10px] font-medium opacity-25 italic">Unknown Source</span>
+                                                )}
+                                            </div>
                                         </div>
 
                                         <div className="flex items-center gap-6">
@@ -533,6 +564,33 @@ const App: React.FC = () => {
                                     <span className="text-[11px] font-black uppercase tracking-[0.2em] opacity-30 italic truncate">{selectedTest.suite}</span>
                                 </div>
                                 <h2 className="text-2xl font-black leading-tight truncate drop-shadow-sm">{selectedTest.title}</h2>
+
+                                {/* Source Location — Drawer Header */}
+                                <div className="flex items-center gap-3 mt-3 flex-wrap">
+                                    {selectedTest.sourceLocation ? (
+                                        <>
+                                            <span
+                                                title={selectedTest.sourceLocation.file}
+                                                className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl border ${theme === 'dark' ? 'bg-white/5 border-white/10 text-white/60' : 'bg-slate-100 border-slate-200 text-slate-600'}`}
+                                            >
+                                                <FileCode className="w-3.5 h-3.5 text-purple-400" />
+                                                📄 {selectedTest.sourceLocation.fileName}{selectedTest.sourceLocation.line ? `:${selectedTest.sourceLocation.line}` : ''}
+                                            </span>
+                                            <span className={`text-[11px] font-medium opacity-40`}>
+                                                📁 {selectedTest.sourceLocation.relativePath.replace(selectedTest.sourceLocation.fileName, '')}
+                                            </span>
+                                            <button
+                                                onClick={() => window.open(`vscode://file/${selectedTest.sourceLocation!.file}:${selectedTest.sourceLocation!.line}`, '_self')}
+                                                title={`Open in VS Code at line ${selectedTest.sourceLocation.line}`}
+                                                className={`flex items-center gap-1.5 text-[11px] font-black uppercase px-3 py-1.5 rounded-xl border transition-all hover:scale-105 active:scale-95 ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'}`}
+                                            >
+                                                <ExternalLink className="w-3 h-3" /> Open in VS Code
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <span className={`text-xs font-medium italic ${theme === 'dark' ? 'text-white/25' : 'text-slate-400'}`}>Unknown Source</span>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex items-center gap-3">
                                 <button
