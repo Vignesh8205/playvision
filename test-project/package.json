@@ -12,6 +12,6 @@
         "typescript": "^5.9.3"
     },
     "dependencies": {
-        "playvision-report": "^1.0.3"
+        "playvision-report": "file:.."
     }
 }
