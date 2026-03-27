@@ -1,4 +1,4 @@
-﻿import * as fs from 'fs';
+import * as fs from 'fs';
 import * as path from 'path';
 import { TestResult, ReportMetadata } from '../schema/types';
 import { IHTMLRenderer } from './interfaces';
@@ -18,8 +18,8 @@ export class HTMLRenderer implements IHTMLRenderer {
         this.outputFolder = outputFolder;
         
         // Strategy: Look for the built UI in multiple locations
-        // 1. Check relative to current file (works when running from dist)
-        const distCandidate = path.join(__dirname, 'report-ui', 'dist', 'index.html');
+        // 1. Check relative to current file (works when running from dist, inside NPM package or locally)
+        const distCandidate = path.join(__dirname, 'ui', 'index.html');
         // 2. Check in the source directory (works during development, looking 2 levels up from dist/html)
         const projectRoot = path.join(__dirname, '..', '..');
         const srcCandidate = path.join(projectRoot, 'src', 'html', 'report-ui', 'dist', 'index.html');

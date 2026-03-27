@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "postbuild": "node -e \"const fs=require('fs'); if(fs.existsSync('src/html/report-ui/dist')) { fs.mkdirSync('dist/html/report-ui/dist', {recursive:true}); fs.cpSync('src/html/report-ui/dist', 'dist/html/report-ui/dist', {recursive:true}); }\"",
+    "postbuild": "node -e \"const fs=require('fs'); if(fs.existsSync('src/html/report-ui/dist')) { fs.mkdirSync('dist/html/ui', {recursive:true}); fs.cpSync('src/html/report-ui/dist', 'dist/html/ui', {recursive:true}); }\"",
     "dev": "tsc --watch",
     "test": "npm run build && cd test-project && npx playwright test",
     "clean": "rimraf dist"
@@ -26,7 +26,6 @@
   "license": "MIT",
   "files": [
     "dist/**/*",
-    "src/html/report-ui/dist/**/*",
     "README.md"
   ],
   "devDependencies": {
