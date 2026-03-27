@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/Vignesh8205/playvision/compare/v1.0.0...v1.0.1) (2026-03-27)
+
+
+### Bug Fixes
+
+* **build:** ensure UI assets are copied to dist and published to npm ([2c6a3d0](https://github.com/Vignesh8205/playvision/commit/2c6a3d008b5741f9be4be1c6282b0c42e7e4e1e5))
+
 # 1.0.0 (2026-03-26)
 
 
