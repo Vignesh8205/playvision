@@ -1,5 +1,5 @@
 {
-  "name": "playvision-reporter",
+  "name": "playvision-report",
   "version": "1.0.0",
   "description": "AI-powered HTML reporter for Playwright with intelligent error analysis",
   "main": "dist/index.js",
