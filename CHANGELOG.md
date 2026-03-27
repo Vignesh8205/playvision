@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/Vignesh8205/playvision/compare/v1.0.1...v1.0.2) (2026-03-27)
+
+
+### Bug Fixes
+
+* trigger initial npm release for playvision-report ([f352443](https://github.com/Vignesh8205/playvision/commit/f352443274c8fc89129c5793362ec335b397fba8))
+
 ## [1.0.1](https://github.com/Vignesh8205/playvision/compare/v1.0.0...v1.0.1) (2026-03-27)
 
 
