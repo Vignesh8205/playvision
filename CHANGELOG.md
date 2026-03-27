@@ -1,3 +1,10 @@
+## [1.0.5](https://github.com/Vignesh8205/playvision/compare/v1.0.4...v1.0.5) (2026-03-27)
+
+
+### Bug Fixes
+
+* **ui:** disable modulePreload and polyfill import.meta to fully resolve Origin CORS and syntax errors on file scheme ([1c7ba30](https://github.com/Vignesh8205/playvision/commit/1c7ba303423c51fab6642fe7d8d4a83772cfb755))
+
 ## [1.0.4](https://github.com/Vignesh8205/playvision/compare/v1.0.3...v1.0.4) (2026-03-27)
 
 
