@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/Vignesh8205/playvision/compare/v1.0.2...v1.0.3) (2026-03-27)
+
+
+### Bug Fixes
+
+* resolve UI layout pathing issue in published NPM package ([819def8](https://github.com/Vignesh8205/playvision/commit/819def86d458f5687660acccdd857c0ca2feb35c))
+
 ## [1.0.2](https://github.com/Vignesh8205/playvision/compare/v1.0.1...v1.0.2) (2026-03-27)
 
 
