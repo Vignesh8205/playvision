@@ -1,3 +1,10 @@
+## [1.0.4](https://github.com/Vignesh8205/playvision/compare/v1.0.3...v1.0.4) (2026-03-27)
+
+
+### Bug Fixes
+
+* **ui:** remove type=module and crossorigin attributes from injected script to prevent CORS errors on local file views ([4413e12](https://github.com/Vignesh8205/playvision/commit/4413e12a86a7750e96a634a31fd4d8ae289e015c))
+
 ## [1.0.3](https://github.com/Vignesh8205/playvision/compare/v1.0.2...v1.0.3) (2026-03-27)
 
 
