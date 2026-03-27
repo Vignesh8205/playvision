@@ -61,10 +61,13 @@ export class HTMLRenderer implements IHTMLRenderer {
         // 3. Inject data into the shell
         // We look for the placeholder script tag and replace its content
         const dataInjection = `window.PLAYVISION_DATA = ${JSON.stringify(dataPayload)};`;
-        const html = shell.replace(
+        let html = shell.replace(
             /<script id="playvision-data">[\s\S]*?<\/script>/,
             `<script id="playvision-data">${dataInjection}</script>`
         );
+
+        // Remove type="module" crossorigin to allow local file viewing without CORS errors
+        html = html.replace(/<script type="module" crossorigin[^>]*>/g, '<script>');
 
         // 4. Output the final report
         const outputPath = path.join(this.outputFolder, 'index.html');

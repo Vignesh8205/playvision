@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { PlayVisionConfig } from 'playvision-report';
 
 export default defineConfig({
     testDir: './tests',
@@ -7,13 +8,14 @@ export default defineConfig({
     retries: process.env.CI ? 2 : 1,
     workers: process.env.CI ? 1 : undefined,
     reporter: [
-        ['../dist/index.js', {
+        ['playvision-report', 
+            {
             outputFolder: 'playvision-report',
             screenshots: true,
             videos: 'retain-on-failure',
             aiAnalysis: true,
             aiMode: 'premium' // Ollama with OpenAI fallback
-        }]
+        } as PlayVisionConfig] 
     ],
     use: {
         trace: 'retain-on-failure',
