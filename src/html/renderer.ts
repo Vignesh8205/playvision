@@ -67,7 +67,9 @@ export class HTMLRenderer implements IHTMLRenderer {
         );
 
         // Remove type="module" crossorigin to allow local file viewing without CORS errors
+        // Also polyfill import.meta which is only allowed inside modules
         html = html.replace(/<script type="module" crossorigin[^>]*>/g, '<script>');
+        html = html.replace(/\bimport\.meta\b/g, "({url:'',env:{}})");
 
         // 4. Output the final report
         const outputPath = path.join(this.outputFolder, 'index.html');
