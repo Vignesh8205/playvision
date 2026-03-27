@@ -26,12 +26,12 @@ jobs:
         run: npm ci
         working-directory: src/html/report-ui
 
-      - name: Build Core Reporter
-        run: npm run build
-
       - name: Build Report UI
         run: npm run build
         working-directory: src/html/report-ui
+
+      - name: Build Core Reporter
+        run: npm run build
 
       # If you have unit tests, uncomment the line below:
       # - name: Run Tests
