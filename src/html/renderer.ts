@@ -58,16 +58,23 @@ export class HTMLRenderer implements IHTMLRenderer {
             }
         };
 
-        // 3. Inject data into the shell
-        // We look for the placeholder script tag and replace its content
+        // 3. Inject data and polyfills into the shell
+        // Move polyfills and data into the head so they are available BEFORE the React JS executes.
+        // This is critical since the React JS runs synchronously (no longer a module) and 
+        // initializes its top-level state immediately.
+        const polyfills = '<script>window.global = window; window.process = { env: {} };</script>';
         const dataInjection = `window.PLAYVISION_DATA = ${JSON.stringify(dataPayload)};`;
+        const dataScript = `<script id="playvision-data">${dataInjection}</script>`;
+        
+        // Replace original placeholder script tag with polyfills + new data script
         let html = shell.replace(
             /<script id="playvision-data">[\s\S]*?<\/script>/,
-            `<script id="playvision-data">${dataInjection}</script>`
+            `${polyfills}${dataScript}`
         );
 
         // Remove type="module" crossorigin to allow local file viewing without CORS errors
         // Also polyfill import.meta which is only allowed inside modules
+        // and ensure 'global' exists (required by some libraries)
         html = html.replace(/<script type="module" crossorigin[^>]*>/g, '<script>');
         html = html.replace(/\bimport\.meta\b/g, "({url:'',env:{}})");
 
