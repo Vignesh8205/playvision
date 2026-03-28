@@ -1,3 +1,10 @@
+## [1.0.9](https://github.com/Vignesh8205/playvision/compare/v1.0.8...v1.0.9) (2026-03-28)
+
+
+### Bug Fixes
+
+* **build:** ensure CSS is compiled in CI and add shell integrity check ([fcf5023](https://github.com/Vignesh8205/playvision/commit/fcf50237c0f48ce29128b80ac6f9e1ff52b43edd))
+
 ## [1.0.8](https://github.com/Vignesh8205/playvision/compare/v1.0.7...v1.0.8) (2026-03-28)
 
 
