@@ -85,10 +85,15 @@ export class PlayVisionReporter implements Reporter {
         this.metadata.endTime = Date.now();
         this.metadata.duration = this.metadata.endTime - this.metadata.startTime;
 
-        console.log('📊 Generating PlayVision Report...');
-
-        // Get all test results
+        // Recalculate metadata from deduplicated results for accurate counts
         const results = this.eventCollector.getResults();
+        this.metadata.totalTests = results.length;
+        this.metadata.passed = results.filter(r => r.status === 'passed').length;
+        this.metadata.failed = results.filter(r => r.status === 'failed' || r.status === 'timedOut').length;
+        this.metadata.skipped = results.filter(r => r.status === 'skipped').length;
+        this.metadata.flaky = results.filter(r => r.retries > 0 && r.status === 'passed').length;
+
+        console.log('📊 Generating PlayVision Report...');
 
         // Serialize to JSON
         await this.serializer.writeResults(results, this.metadata);
@@ -100,20 +105,12 @@ export class PlayVisionReporter implements Reporter {
         await this.exportManager.export(results, this.metadata);
 
         console.log(`✅ Report generated: ${this.config.outputFolder}/index.html`);
-        console.log(`📈 Summary: ${this.metadata.passed} passed, ${this.metadata.failed} failed, ${this.metadata.skipped} skipped`);
+        console.log(`📈 Summary: ${this.metadata.passed} passed, ${this.metadata.failed} failed, ${this.metadata.skipped} skipped${this.metadata.flaky ? ` (${this.metadata.flaky} flaky)` : ''}`);
     }
 
     private updateMetadata(result: PWTestResult): void {
-        this.metadata.totalTests++;
-
-        if (result.status === 'passed') this.metadata.passed++;
-        else if (result.status === 'failed') this.metadata.failed++;
-        else if (result.status === 'skipped') this.metadata.skipped++;
-        else if (result.status === 'timedOut') this.metadata.failed++;
-
-        if (result.retry > 0 && result.status === 'passed') {
-            this.metadata.flaky++;
-        }
+        // No longer incrementing counts here because it double-counts retries.
+        // Counts are now derived from deduplicated results in onEnd.
     }
 }
 
