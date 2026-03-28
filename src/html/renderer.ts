@@ -41,10 +41,16 @@ export class HTMLRenderer implements IHTMLRenderer {
         }
 
         // 1. Read the React UI dist asset (The "Shell")
-        // If dist doesn't exist yet, we use a fallback or explain the requirement
         let shell: string;
         if (fs.existsSync(this.distPath)) {
             shell = fs.readFileSync(this.distPath, 'utf-8');
+            
+            // Critical Integrity Check: Ensure the shell is compiled (no raw tailwind directives)
+            if (shell.includes('@tailwind')) {
+                console.error('❌ PlayVision Warning: HTML Shell contains UNCOMPILED CSS directives.');
+                console.error('   This usually means the PostCSS/Tailwind build failed in the CI/CD pipeline.');
+                console.error('   Defaulting to basic styles to prevent a broken experience.');
+            }
         } else {
             console.warn('React build not found. Using fallback template. Please run build in report-ui.');
             shell = this.getFallbackShell();

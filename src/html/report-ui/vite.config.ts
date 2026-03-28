@@ -4,6 +4,9 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 
 export default defineConfig({
   plugins: [react(), viteSingleFile()],
+  css: {
+    postcss: './postcss.config.js',
+  },
   build: {
     modulePreload: false,
     assetsInlineLimit: 100000000, // Inline everything

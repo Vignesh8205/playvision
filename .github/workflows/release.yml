@@ -28,19 +28,16 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Install UI Dependencies
-        run: npm ci
-        working-directory: src/html/report-ui
-
       - name: Build Report UI
-        run: npm run build
         working-directory: src/html/report-ui
+        run: |
+          npm ci
+          npm run build
 
       - name: Build Core Reporter
-        run: npm run build
+        run: |
+          npm ci
+          npm run build
 
       - name: Semantic Release
         env:
