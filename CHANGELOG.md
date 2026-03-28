@@ -1,3 +1,10 @@
+## [1.0.8](https://github.com/Vignesh8205/playvision/compare/v1.0.7...v1.0.8) (2026-03-28)
+
+
+### Bug Fixes
+
+* **renderer:** use robust regex for style and script tag cleanup ([f990444](https://github.com/Vignesh8205/playvision/commit/f990444b9807ebb9d4dd52041a3f36f765b93821))
+
 ## [1.0.7](https://github.com/Vignesh8205/playvision/compare/v1.0.6...v1.0.7) (2026-03-28)
 
 
