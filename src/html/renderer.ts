@@ -60,25 +60,29 @@ export class HTMLRenderer implements IHTMLRenderer {
 
         // 3. Inject data and polyfills into the shell
         // Move polyfills and data into the head so they are available BEFORE the React JS executes.
-        // This is critical since the React JS runs synchronously (no longer a module) and 
-        // initializes its top-level state immediately.
         const polyfills = '<script>window.global = window; window.process = { env: {} };</script>';
         const dataInjection = `window.PLAYVISION_DATA = ${JSON.stringify(dataPayload)};`;
         const dataScript = `<script id="playvision-data">${dataInjection}</script>`;
         
-        // Replace original placeholder script tag with polyfills + new data script
+        // Use a function for replacement to avoid issues with '$' in the JSON data
         let html = shell.replace(
             /<script id="playvision-data">[\s\S]*?<\/script>/,
-            `${polyfills}${dataScript}`
+            () => `${polyfills}${dataScript}`
         );
 
         // Remove type="module" crossorigin to allow local file viewing without CORS errors
         // Also polyfill import.meta which is only allowed inside modules
-        // and ensure 'global' exists (required by some libraries)
         html = html.replace(/<script type="module" crossorigin[^>]*>/g, '<script>');
         html = html.replace(/\bimport\.meta\b/g, "({url:'',env:{}})");
 
+        // Critical Fix: Remove invalid attributes from inlined <style> tags that cause browsers to ignore them
+        // vite-plugin-singlefile sometimes adds rel="stylesheet" or crossorigin to <style> tags
+        html = html.replace(/<style\s+rel="stylesheet"\s+crossorigin>/g, '<style>');
+        html = html.replace(/<style\s+crossorigin\s+rel="stylesheet">/g, '<style>');
+        html = html.replace(/<style\s+crossorigin>/g, '<style>');
+
         // 4. Output the final report
+
         const outputPath = path.join(this.outputFolder, 'index.html');
         fs.writeFileSync(outputPath, html, 'utf-8');
         
