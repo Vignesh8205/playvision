@@ -1,3 +1,10 @@
+## [1.0.6](https://github.com/Vignesh8205/playvision/compare/v1.0.5...v1.0.6) (2026-03-28)
+
+
+### Bug Fixes
+
+* resolve empty UI and inaccurate results counting ([31ff466](https://github.com/Vignesh8205/playvision/commit/31ff466f6ec9459b9c8016c44a974a3f4c2c6e9a))
+
 ## [1.0.5](https://github.com/Vignesh8205/playvision/compare/v1.0.4...v1.0.5) (2026-03-27)
 
 
