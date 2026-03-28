@@ -1,3 +1,10 @@
+## [1.0.7](https://github.com/Vignesh8205/playvision/compare/v1.0.6...v1.0.7) (2026-03-28)
+
+
+### Bug Fixes
+
+* **renderer:** restore styling in HTML report and improve data injection ([1a6f23c](https://github.com/Vignesh8205/playvision/commit/1a6f23c88801257f1b17f4ac819d57cbca939b1a))
+
 ## [1.0.6](https://github.com/Vignesh8205/playvision/compare/v1.0.5...v1.0.6) (2026-03-28)
 
 
