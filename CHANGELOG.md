@@ -1,3 +1,10 @@
+## [1.0.10](https://github.com/Vignesh8205/playvision/compare/v1.0.9...v1.0.10) (2026-03-30)
+
+
+### Bug Fixes
+
+* **renderer:** ensure tailwind compilation and strip invalid style attributes ([c6976c4](https://github.com/Vignesh8205/playvision/commit/c6976c47a30adda89e82fe1e08a562921aa56414))
+
 ## [1.0.9](https://github.com/Vignesh8205/playvision/compare/v1.0.8...v1.0.9) (2026-03-28)
 
 
