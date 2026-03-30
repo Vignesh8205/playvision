@@ -80,15 +80,19 @@ export class HTMLRenderer implements IHTMLRenderer {
         // Remove type="module" crossorigin to allow local file viewing without CORS errors
         // Also polyfill import.meta which is only allowed inside modules
         // Robust regex for catching variation in attributes
-        html = html.replace(/<script\s+[^>]*type=["']module["'][^>]*>/gi, '<script>');
-        html = html.replace(/<script\s+[^>]*crossorigin[^>]*>/gi, '<script>');
+        html = html.replace(/<script\s+([^>]*?)type=["']module["']([^>]*?)>/gi, '<script $1 $2>');
+        html = html.replace(/<script\s+([^>]*?)crossorigin([^>]*?)>/gi, '<script $1 $2>');
         html = html.replace(/\bimport\.meta\b/g, "({url:'',env:{}})");
 
         // Critical Fix: Remove invalid attributes from inlined <style> tags that cause browsers to ignore them
         // vite-plugin-singlefile sometimes adds rel="stylesheet" or crossorigin to <style> tags
-        // This is a robust catch-all for any style tag with these attributes
-        html = html.replace(/<style\s+[^>]*rel=["']stylesheet["'][^>]*>/gi, '<style>');
-        html = html.replace(/<style\s+[^>]*crossorigin[^>]*>/gi, '<style>');
+        html = html.replace(/<style\s+([^>]*?)rel=["']stylesheet["']([^>]*?)>/gi, '<style $1 $2>');
+        html = html.replace(/<style\s+([^>]*?)crossorigin([^>]*?)>/gi, '<style $1 $2>');
+
+        // Cleanup potential double spaces or leading/trailing spaces in tags
+        html = html.replace(/<(style|script)\s+>/gi, '<$1>');
+        html = html.replace(/\s+>/g, '>');
+        html = html.replace(/\s{2,}/g, ' ');
 
         // 4. Output the final report
         const outputPath = path.join(this.outputFolder, 'index.html');

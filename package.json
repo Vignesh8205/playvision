@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run build:ui",
+    "build:ui": "cd src/html/report-ui && npm install && npm run build",
     "postbuild": "node -e \"const fs=require('fs'); if(fs.existsSync('src/html/report-ui/dist')) { fs.mkdirSync('dist/html/ui', {recursive:true}); fs.cpSync('src/html/report-ui/dist', 'dist/html/ui', {recursive:true}); }\"",
     "dev": "tsc --watch",
     "test": "npm run build && cd test-project && npx playwright test",
