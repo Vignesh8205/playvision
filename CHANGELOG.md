@@ -1,3 +1,10 @@
+## [1.0.11](https://github.com/Vignesh8205/playvision/compare/v1.0.10...v1.0.11) (2026-04-03)
+
+
+### Bug Fixes
+
+* **ui:** ensure tailwind compiles during CI and safely strip html style attributes ([f6e1f73](https://github.com/Vignesh8205/playvision/commit/f6e1f732a530e08aca8244269e74b4d0538a5b20))
+
 ## [1.0.10](https://github.com/Vignesh8205/playvision/compare/v1.0.9...v1.0.10) (2026-03-30)
 
 
