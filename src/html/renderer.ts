@@ -45,7 +45,7 @@ export class HTMLRenderer implements IHTMLRenderer {
         if (fs.existsSync(this.distPath)) {
             shell = fs.readFileSync(this.distPath, 'utf-8');
             
-            // Critical Integrity Check: Ensure the shell is compiled (no raw tailwind directives)
+            // Integrity Check: Ensure the shell is compiled (no raw tailwind directives)
             if (shell.includes('@tailwind')) {
                 console.error('❌ PlayVision Warning: HTML Shell contains UNCOMPILED CSS directives.');
                 console.error('   This usually means the PostCSS/Tailwind build failed in the CI/CD pipeline.');
@@ -65,40 +65,56 @@ export class HTMLRenderer implements IHTMLRenderer {
             }
         };
 
-        // 3. Inject data and polyfills into the shell
-        // Move polyfills and data into the head so they are available BEFORE the React JS executes.
+        // 3. Inject data and polyfills into the shell.
+        //    Use a replacement function (not a string) to prevent '$' in JSON from being
+        //    interpreted as a regex back-reference.
         const polyfills = '<script>window.global = window; window.process = { env: {} };</script>';
         const dataInjection = `window.PLAYVISION_DATA = ${JSON.stringify(dataPayload)};`;
         const dataScript = `<script id="playvision-data">${dataInjection}</script>`;
         
-        // Use a function for replacement to avoid issues with '$' in the JSON data
         let html = shell.replace(
             /<script id="playvision-data">[\s\S]*?<\/script>/,
             () => `${polyfills}${dataScript}`
         );
 
-        // Remove type="module" crossorigin to allow local file viewing without CORS errors
-        // Also polyfill import.meta which is only allowed inside modules
-        // Robust regex for catching variation in attributes
-        html = html.replace(/<script\s+([^>]*?)type=["']module["']([^>]*?)>/gi, '<script $1 $2>');
-        html = html.replace(/<script\s+([^>]*?)crossorigin([^>]*?)>/gi, '<script $1 $2>');
+        // 4. Safe attribute cleanup on <script> opening tags ONLY.
+        //    Strategy: use a replace callback so we process only the attribute string of each
+        //    opening tag — never the JavaScript content between <script> and </script>.
+        //    This is critical: NEVER use a global \s{2,} or \s+> replacement on the full HTML
+        //    because that destroys minified CSS, Base64 data URIs, and other sensitive content.
+        //
+        //    We remove:
+        //      - type="module"  → makes scripts execute as classic scripts (enables local file viewing)
+        //      - crossorigin    → removes CORS restriction on local file access
+        html = html.replace(/<script(\s[^>]*)>/gi, (_match: string, attrs: string) => {
+            let cleaned = attrs
+                .replace(/\s*type\s*=\s*["']module["']/gi, '')
+                .replace(/\s*crossorigin(?:\s*=\s*["'][^"']*["'])?/gi, '');
+            return `<script${cleaned}>`;
+        });
+
+        // 5. Polyfill import.meta.
+        //    import.meta is only valid inside ES modules; we need to replace it for classic scripts.
         html = html.replace(/\bimport\.meta\b/g, "({url:'',env:{}})");
 
-        // Critical Fix: Remove invalid attributes from inlined <style> tags that cause browsers to ignore them
-        // vite-plugin-singlefile sometimes adds rel="stylesheet" or crossorigin to <style> tags
-        html = html.replace(/<style\s+([^>]*?)rel=["']stylesheet["']([^>]*?)>/gi, '<style $1 $2>');
-        html = html.replace(/<style\s+([^>]*?)crossorigin([^>]*?)>/gi, '<style $1 $2>');
+        // 6. Safe attribute cleanup on <style> opening tags ONLY.
+        //    vite-plugin-singlefile sometimes injects rel="stylesheet" or crossorigin into <style> tags.
+        //    Browsers silently IGNORE <style> tags with invalid attributes, which is why the design
+        //    disappears entirely. We strip these bad attributes here.
+        html = html.replace(/<style(\s[^>]*)>/gi, (_match: string, attrs: string) => {
+            let cleaned = attrs
+                .replace(/\s*rel\s*=\s*["']stylesheet["']/gi, '')
+                .replace(/\s*crossorigin(?:\s*=\s*["'][^"']*["'])?/gi, '');
+            cleaned = cleaned.trim();
+            // Return bare <style> if all attributes were removed, else preserve remaining attributes
+            return cleaned ? `<style ${cleaned}>` : '<style>';
+        });
 
-        // Cleanup potential double spaces or leading/trailing spaces in tags
-        html = html.replace(/<(style|script)\s+>/gi, '<$1>');
-        html = html.replace(/\s+>/g, '>');
-        html = html.replace(/\s{2,}/g, ' ');
-
-        // 4. Output the final report
+        // 7. Output the final report
         const outputPath = path.join(this.outputFolder, 'index.html');
         fs.writeFileSync(outputPath, html, 'utf-8');
         
-        console.log(`Premium React report generated in ${Math.round(performance.now() - start)}ms: ${outputPath}`);
+        console.log(`✅ PlayVision report generated in ${Math.round(performance.now() - start)}ms → ${outputPath}`);
     }
 
 
@@ -108,9 +124,8 @@ export class HTMLRenderer implements IHTMLRenderer {
             <div style="text-align:center">
                 <h1 style="color:red">UI Assets Missing</h1>
                 <p>Please build the <code>report-ui</code> project to enable the modern React view.</p>
-                <p>Run: <code>cd src/html/report-ui && npm install && npm run build</code></p>
+                <p>Run: <code>cd src/html/report-ui &amp;&amp; npm install &amp;&amp; npm run build</code></p>
                 <hr style="border:0;border-top:1px solid #333;margin:20px 0">
-                <p style="opacity:0.5">Test Count: ${Math.random()}</p>
             </div>
         </body></html>`;
     }
