@@ -19,7 +19,9 @@ import {
     FileSpreadsheet,
     FileText,
     Download,
-    FileCode
+    FileCode,
+    LayoutGrid,
+    ListTree
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as XLSX from 'xlsx';
@@ -104,10 +106,25 @@ const App: React.FC = () => {
                 r.suite.toLowerCase().includes(q) ||
                 (r.sourceLocation?.fileName?.toLowerCase().includes(q) ?? false) ||
                 (r.sourceLocation?.relativePath?.toLowerCase().includes(q) ?? false);
-            const matchStatus = statusFilter === 'all' || r.status === statusFilter;
+            const matchStatus = statusFilter === 'all' || 
+                (statusFilter === 'failed' ? (r.status === 'failed' || r.status === 'timedOut') : r.status === statusFilter);
             return matchSearch && matchStatus;
         });
     }, [search, statusFilter]);
+
+    // Added viewMode
+    const [viewMode, setViewMode] = useState<'grid' | 'tree'>('grid');
+
+    const treeGroupedData = useMemo(() => {
+        return filteredResults.reduce((acc, test) => {
+            const specFile = test.sourceLocation?.fileName || test.error?.specFile || test.suite.split(' ')[0] || 'Unknown Spec Files';
+            if (!acc[specFile]) {
+                acc[specFile] = [];
+            }
+            acc[specFile].push(test);
+            return acc;
+        }, {} as Record<string, typeof filteredResults>);
+    }, [filteredResults]);
 
     const stats = useMemo(() => {
         return {
@@ -303,8 +320,8 @@ const App: React.FC = () => {
                             />
                         </div>
 
-                        <div className="flex gap-4">
-                            <div className={`flex gap-1.5 p-1.5 rounded-2xl border ${theme === 'dark' ? 'bg-[#161920] border-white/5' : 'bg-slate-100 border-slate-200'
+                        <div className="flex flex-wrap items-center gap-4">
+                            <div className={`flex flex-wrap items-center justify-center md:justify-start gap-1 p-1 md:p-1.5 rounded-2xl border w-full sm:w-auto ${theme === 'dark' ? 'bg-[#161920] border-white/5' : 'bg-slate-100 border-slate-200'
                                 }`}>
                                 {[
                                     { id: 'all', label: 'All', icon: <Activity className="w-3.5 h-3.5" /> },
@@ -326,7 +343,25 @@ const App: React.FC = () => {
                                 ))}
                             </div>
 
-                            <div className={`flex gap-1.5 p-1.5 rounded-2xl border ${theme === 'dark' ? 'bg-[#161920] border-white/5' : 'bg-slate-100 border-slate-200'
+                            <div className={`flex flex-wrap items-center justify-center md:justify-start gap-1 p-1 md:p-1.5 rounded-2xl border w-full sm:w-auto ${theme === 'dark' ? 'bg-[#161920] border-white/5' : 'bg-slate-100 border-slate-200'
+                                }`}>
+                                <button
+                                    onClick={() => setViewMode('grid')}
+                                    title="Grid View"
+                                    className={`p-2.5 rounded-xl text-xs font-bold transition-all ${viewMode === 'grid' ? (theme === 'dark' ? 'bg-white/10 text-white shadow-lg' : 'bg-white text-slate-900 shadow-md') : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 opacity-60 hover:opacity-100'}`}
+                                >
+                                    <LayoutGrid className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('tree')}
+                                    title="Testcases Tree"
+                                    className={`p-2.5 rounded-xl text-xs font-bold transition-all ${viewMode === 'tree' ? (theme === 'dark' ? 'bg-white/10 text-white shadow-lg' : 'bg-white text-slate-900 shadow-md') : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50 opacity-60 hover:opacity-100'}`}
+                                >
+                                    <ListTree className="w-4 h-4" />
+                                </button>
+                            </div>
+
+                            <div className={`flex flex-wrap items-center justify-center md:justify-start gap-1 p-1 md:p-1.5 rounded-2xl border w-full sm:w-auto ${theme === 'dark' ? 'bg-[#161920] border-white/5' : 'bg-slate-100 border-slate-200'
                                 }`}>
                                 <button
                                     onClick={handleExportExcel}
@@ -351,88 +386,27 @@ const App: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 gap-4">
-                        <AnimatePresence mode="popLayout">
-                            {filteredResults.map((test, idx) => (
-                                <motion.div
-                                    layout
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, scale: 0.98 }}
-                                    transition={{ delay: idx * 0.015, type: 'spring', stiffness: 100 }}
-                                    key={test.testId}
-                                    onClick={() => setSelectedTestId(test.testId)}
-                                    className={`group relative overflow-hidden border-2 rounded-3xl p-6 cursor-pointer transition-all ${theme === 'dark'
-                                            ? (selectedTestId === test.testId ? 'bg-[#1c212a] border-purple-500/40 shadow-xl shadow-purple-500/5' : 'bg-[#161920] border-white/5 hover:border-white/10 hover:bg-[#1c212a]')
-                                            : (selectedTestId === test.testId ? 'bg-white border-purple-500/30' : 'bg-white border-slate-100 shadow-sm hover:border-purple-200 hover:shadow-md')
-                                        }`}
-                                >
-                                    <div className={`absolute left-0 top-0 bottom-0 w-2 transition-opacity group-hover:opacity-100 ${test.status === 'passed' ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]' :
-                                            test.status === 'failed' ? 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' :
-                                                test.status === 'flaky' ? 'bg-orange-500' : 'bg-slate-400'
-                                        } ${selectedTestId === test.testId ? 'opacity-100' : 'opacity-40'}`}
+                        {viewMode === 'grid' ? (
+                            <AnimatePresence mode="popLayout">
+                                {filteredResults.map((test, idx) => (
+                                    <TestCard key={test.testId} test={test} idx={idx} theme={theme} selectedTestId={selectedTestId} onClick={() => setSelectedTestId(test.testId)} isCompact={false} />
+                                ))}
+                            </AnimatePresence>
+                        ) : (
+                            <div className="space-y-8">
+                                {Object.entries(treeGroupedData).map(([specName, tests], groupIdx) => (
+                                    <SpecGroupCard 
+                                        key={specName} 
+                                        specName={specName} 
+                                        tests={tests as TestResult[]} 
+                                        groupIdx={groupIdx} 
+                                        theme={theme} 
+                                        selectedTestId={selectedTestId} 
+                                        setSelectedTestId={setSelectedTestId} 
                                     />
-
-                                    <div className="flex items-center justify-between gap-6">
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-3 mb-2.5">
-                                                <span className={`text-[10px] uppercase tracking-[0.2em] font-black opacity-30`}>{test.suite}</span>
-                                                {test.error?.aiAnalysis && (
-                                                    <span className="px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-[9px] text-purple-500 font-black flex items-center gap-1.5 shadow-sm">
-                                                        <Bot className="w-3.5 h-3.5" /> AI Forensics
-                                                    </span>
-                                                )}
-                                                {test.attachments.length > 0 && (
-                                                    <span className="flex items-center gap-1 text-[9px] font-black uppercase opacity-30">
-                                                        <ImageIcon className="w-3 h-3" /> {test.attachments.length} Assets
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <h3 className={`font-bold transition-colors text-lg truncate ${theme === 'dark' ? 'group-hover:text-white' : 'group-hover:text-slate-900'
-                                                }`}>{test.title}</h3>
-
-                                            {/* Source Location Row */}
-                                            <div className="flex items-center gap-3 mt-2 flex-wrap">
-                                                {test.sourceLocation ? (
-                                                    <>
-                                                        <span
-                                                            title={test.sourceLocation.file}
-                                                            className={`flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-all ${theme === 'dark' ? 'bg-white/5 border-white/5 text-white/60' : 'bg-slate-100 border-slate-200 text-slate-600'}`}
-                                                        >
-                                                            <FileCode className="w-3 h-3 text-purple-400 shrink-0" />
-                                                            {test.sourceLocation.fileName}{test.sourceLocation.line ? `:${test.sourceLocation.line}` : ''}
-                                                        </span>
-                                                        <span className={`text-[10px] font-medium opacity-40 truncate max-w-[200px]`}>
-                                                            📁 {test.sourceLocation.relativePath.replace(test.sourceLocation.fileName, '')}
-                                                        </span>
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); window.open(`vscode://file/${test.sourceLocation!.file}:${test.sourceLocation!.line}`, '_self'); }}
-                                                            title={`Open in VS Code: ${test.sourceLocation.file}:${test.sourceLocation.line}`}
-                                                            className={`flex items-center gap-1 text-[10px] font-black uppercase px-2 py-1 rounded-lg border opacity-0 group-hover:opacity-100 transition-all ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'}`}
-                                                        >
-                                                            <ExternalLink className="w-2.5 h-2.5" /> VS Code
-                                                        </button>
-                                                    </>
-                                                ) : (
-                                                    <span className="text-[10px] font-medium opacity-25 italic">Unknown Source</span>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-6">
-                                            <div className="text-right flex flex-col items-end">
-                                                <span className={`text-base font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'
-                                                    }`}>{(test.duration / 1000).toFixed(2)}s</span>
-                                                <span className="text-[10px] opacity-30 font-bold uppercase tracking-widest">Duration</span>
-                                            </div>
-                                            <div className={`p-2.5 rounded-2xl transition-all group-hover:translate-x-1 ${theme === 'dark' ? 'bg-white/5 border border-white/5' : 'bg-slate-50 border border-slate-100'
-                                                }`}>
-                                                <ChevronRight className={`w-5 h-5 ${selectedTestId === test.testId ? 'rotate-90 text-purple-500 scale-110' : 'opacity-20'}`} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </AnimatePresence>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </section>
 
@@ -551,19 +525,29 @@ const App: React.FC = () => {
                             }`}
                     >
                         {/* Drawer Header */}
-                        <div className={`p-8 border-b flex items-center justify-between gap-8 ${theme === 'dark' ? 'border-white/5 bg-[#161920]/50' : 'border-slate-200 bg-white'
+                        <div className={`p-6 md:p-8 border-b flex items-start justify-between gap-6 md:gap-8 ${theme === 'dark' ? 'border-white/5 bg-[#161920]/50' : 'border-slate-200 bg-white'
                             }`}>
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-4 mb-2">
                                     <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${selectedTest.status === 'passed' ? 'bg-green-500/10 text-green-500 border-green-500/20' :
-                                            selectedTest.status === 'failed' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
+                                            (selectedTest.status === 'failed' || selectedTest.status === 'timedOut') ? 'bg-red-500/10 text-red-500 border-red-500/20' :
                                                 'bg-orange-500/10 text-orange-500 border-orange-500/20'
                                         }`}>
                                         {selectedTest.status}
                                     </div>
                                     <span className="text-[11px] font-black uppercase tracking-[0.2em] opacity-30 italic truncate">{selectedTest.suite}</span>
                                 </div>
-                                <h2 className="text-2xl font-black leading-tight truncate drop-shadow-sm">{selectedTest.title}</h2>
+                                <h2 
+                                    className="text-xl md:text-2xl font-black leading-tight break-words whitespace-normal drop-shadow-sm"
+                                    style={{ 
+                                        display: '-webkit-box', 
+                                        WebkitBoxOrient: 'vertical', 
+                                        WebkitLineClamp: 2, 
+                                        overflow: 'hidden' 
+                                    }}
+                                >
+                                    {selectedTest.title}
+                                </h2>
 
                                 {/* Source Location — Drawer Header */}
                                 <div className="flex items-center gap-3 mt-3 flex-wrap">
@@ -592,13 +576,13 @@ const App: React.FC = () => {
                                     )}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 shrink-0">
                                 <button
                                     onClick={() => setSelectedTestId(null)}
-                                    className={`p-4 rounded-[24px] transition-all hover:rotate-90 active:scale-95 ${theme === 'dark' ? 'bg-white/5 text-white/40 hover:bg-red-500/20 hover:text-red-400' : 'bg-slate-100 text-slate-400 hover:bg-red-50'
+                                    className={`p-3 md:p-4 rounded-[16px] md:rounded-[24px] transition-all hover:rotate-90 active:scale-95 ${theme === 'dark' ? 'bg-white/5 text-white/40 hover:bg-red-500/20 hover:text-red-400' : 'bg-slate-100 text-slate-400 hover:bg-red-50'
                                         }`}
                                 >
-                                    <X className="w-6 h-6" />
+                                    <X className="w-5 h-5 md:w-6 md:h-6" />
                                 </button>
                             </div>
                         </div>
@@ -878,5 +862,162 @@ const StatItem = ({ icon, label, value, theme }: { icon: React.ReactNode, label:
         </div>
     </div>
 );
+
+const TestCard = ({ test, idx, theme, selectedTestId, onClick, isCompact }: { test: TestResult, idx: number, theme: string, selectedTestId: string | null, onClick: () => void, isCompact?: boolean }) => {
+    return (
+        <motion.div
+            layout
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ delay: idx * 0.015, type: 'spring', stiffness: 100 }}
+            key={test.testId}
+            onClick={onClick}
+            className={`group relative overflow-hidden border-2 rounded-3xl ${isCompact ? 'p-4' : 'p-6'} cursor-pointer transition-all ${theme === 'dark'
+                    ? (selectedTestId === test.testId ? 'bg-[#1c212a] border-purple-500/40 shadow-xl shadow-purple-500/5' : 'bg-[#161920] border-white/5 hover:border-white/10 hover:bg-[#1c212a]')
+                    : (selectedTestId === test.testId ? 'bg-white border-purple-500/30' : 'bg-white border-slate-100 shadow-sm hover:border-purple-200 hover:shadow-md')
+                }`}
+        >
+            <div className={`absolute left-0 top-0 bottom-0 ${isCompact ? 'w-1.5' : 'w-2'} transition-opacity group-hover:opacity-100 ${test.status === 'passed' ? 'bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]' :
+                    (test.status === 'failed' || test.status === 'timedOut') ? 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' :
+                        test.status === 'flaky' ? 'bg-orange-500' : 'bg-slate-400'
+                } ${selectedTestId === test.testId ? 'opacity-100' : 'opacity-40'}`}
+            />
+
+            <div className={`flex items-start justify-between gap-6 ${isCompact ? 'pl-2' : ''}`}>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-2.5">
+                        <span className={`text-[10px] uppercase tracking-[0.2em] font-black ${theme === 'dark' ? 'text-white/60' : 'text-slate-500'}`}>{test.suite}</span>
+                        {test.error?.aiAnalysis && (
+                            <span className="px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-[9px] text-purple-500 font-black flex items-center gap-1.5 shadow-sm">
+                                <Bot className="w-3.5 h-3.5" /> AI Forensics
+                            </span>
+                        )}
+                        {test.attachments.length > 0 && (
+                            <span className={`flex items-center gap-1 text-[9px] font-black uppercase ${theme === 'dark' ? 'text-white/60' : 'text-slate-500'}`}>
+                                <ImageIcon className="w-3 h-3" /> {test.attachments.length} {isCompact ? '' : 'Assets'}
+                            </span>
+                        )}
+                    </div>
+                    <h3 
+                        className={`font-bold transition-colors ${isCompact ? 'text-sm md:text-base' : 'text-base md:text-lg'} break-words whitespace-normal ${theme === 'dark' ? 'text-white/90 group-hover:text-purple-400' : 'text-slate-800 group-hover:text-purple-600'}`}
+                        style={{ 
+                            display: '-webkit-box', 
+                            WebkitBoxOrient: 'vertical', 
+                            WebkitLineClamp: 2, 
+                            overflow: 'hidden' 
+                        }}
+                    >
+                        {test.title}
+                    </h3>
+
+                    {/* Source Location Row */}
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
+                        {test.sourceLocation ? (
+                            <>
+                                <span
+                                    title={test.sourceLocation.file}
+                                    className={`flex items-center gap-1.5 ${isCompact ? 'text-[9px] px-2 py-0.5' : 'text-[11px] px-3 py-1'} font-semibold rounded-lg border transition-all ${theme === 'dark' ? 'bg-white/10 border-white/10 text-white/90 shadow-sm' : 'bg-slate-100 border-slate-200 text-slate-700'}`}
+                                >
+                                    <FileCode className={`${isCompact ? 'w-2.5 h-2.5' : 'w-3 h-3'} text-purple-400 shrink-0`} />
+                                    {test.sourceLocation.fileName}{test.sourceLocation.line ? `:${test.sourceLocation.line}` : ''}
+                                </span>
+                                {!isCompact && (
+                                    <>
+                                        <span className={`text-[10px] font-medium opacity-70 truncate max-w-[200px] ${theme === 'dark' ? 'text-white' : 'text-slate-600'}`}>
+                                            📁 {test.sourceLocation.relativePath.replace(test.sourceLocation.fileName, '')}
+                                        </span>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); window.open(`vscode://file/${test.sourceLocation!.file}:${test.sourceLocation!.line}`, '_self'); }}
+                                            title={`Open in VS Code: ${test.sourceLocation.file}:${test.sourceLocation.line}`}
+                                            className={`flex items-center gap-1 text-[10px] font-black uppercase px-2 py-1 rounded-lg border opacity-0 group-hover:opacity-100 transition-all ${theme === 'dark' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400 hover:bg-blue-500/20' : 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'}`}
+                                        >
+                                            <ExternalLink className="w-2.5 h-2.5" /> VS Code
+                                        </button>
+                                    </>
+                                )}
+                            </>
+                        ) : (
+                            !isCompact && <span className={`text-[10px] font-medium italic ${theme === 'dark' ? 'text-white/60' : 'text-slate-400'}`}>Unknown Source</span>
+                        )}
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-6 shrink-0 mt-1">
+                    <div className="text-right flex flex-col items-end">
+                        <span className={`text-base font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'
+                            }`}>{(test.duration / 1000).toFixed(2)}s</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-widest ${theme === 'dark' ? 'text-white/30' : 'text-slate-400'}`}>Duration</span>
+                    </div>
+                    <div className={`p-2.5 rounded-2xl transition-all group-hover:translate-x-1 ${theme === 'dark' ? 'bg-white/5 border border-white/5' : 'bg-slate-50 border border-slate-100'
+                        }`}>
+                        <ChevronRight className={`w-5 h-5 ${selectedTestId === test.testId ? 'rotate-90 text-purple-500 scale-110' : 'opacity-40 text-slate-400'}`} />
+                    </div>
+                </div>
+            </div>
+        </motion.div>
+    );
+};
+
+const SpecGroupCard = ({ specName, tests, groupIdx, theme, selectedTestId, setSelectedTestId }: { specName: string, tests: TestResult[], groupIdx: number, theme: string, selectedTestId: string | null, setSelectedTestId: (v: string) => void }) => {
+    const [isExpanded, setIsExpanded] = useState(true);
+    const passed = tests.filter(t => t.status === 'passed').length;
+    const failed = tests.filter(t => t.status === 'failed' || t.status === 'timedOut').length;
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: groupIdx * 0.05 }}
+            className={`border rounded-3xl overflow-hidden ${theme === 'dark' ? 'bg-[#1a1e27] border-white/5 shadow-xl shadow-black/20' : 'bg-slate-50 border-slate-200 shadow-md'}`}
+        >
+            <div 
+                className={`p-4 flex items-center justify-between cursor-pointer transition-colors ${theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-slate-100'}`}
+                onClick={() => setIsExpanded(!isExpanded)}
+            >
+                <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-xl border ${theme === 'dark' ? 'bg-[#161920] border-white/5' : 'bg-white border-slate-200'}`}>
+                        <FileCode className="w-5 h-5 text-purple-500" />
+                    </div>
+                    <h2 className={`text-lg font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{specName}</h2>
+                    <span className="text-xs opacity-50 font-bold ml-2">({tests.length} tests)</span>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 text-xs font-bold shrink-0">
+                        {passed > 0 && <span className="text-green-500 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5"/> {passed}</span>}
+                        {failed > 0 && <span className="text-red-500 flex items-center gap-1"><XCircle className="w-3.5 h-3.5"/> {failed}</span>}
+                    </div>
+                    <ChevronRight className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-90' : ''} ${theme === 'dark' ? 'text-white/30' : 'text-slate-400'}`} />
+                </div>
+            </div>
+            
+            <AnimatePresence initial={false}>
+                {isExpanded && (
+                    <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    >
+                        <div className={`p-4 pt-0 space-y-2 relative border-t ${theme === 'dark' ? 'border-white/5 bg-[#161920]' : 'border-slate-200 bg-white'}`}>
+                            <div className={`absolute left-[34px] top-6 bottom-6 w-0.5 ${theme === 'dark' ? 'bg-white/5' : 'bg-slate-100'} -z-10`} />
+                            {tests.map((test, idx) => (
+                                <TestCard 
+                                    key={test.testId} 
+                                    test={test} 
+                                    idx={idx} 
+                                    theme={theme} 
+                                    selectedTestId={selectedTestId} 
+                                    onClick={() => setSelectedTestId(test.testId)} 
+                                    isCompact={true}
+                                />
+                            ))}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </motion.div>
+    );
+};
 
 export default App;
