@@ -8,3 +8,6 @@ export { RuleBasedAnalyzer } from './rule-based-analyzer';
 export { HuggingFaceAnalyzer } from './huggingface-analyzer';
 export { OllamaAnalyzer } from './ollama-analyzer';
 export { OpenAIAnalyzer } from './openai-analyzer';
+export { MistralAnalyzer } from './mistral-analyzer';
+export { GroqAnalyzer } from './groq-analyzer';
+export { GeminiAnalyzer } from './gemini-analyzer';

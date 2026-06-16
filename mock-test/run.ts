@@ -123,6 +123,24 @@ const mockResults: TestResult[] = [
             }
         },
         steps: []
+    },
+    {
+        testId: 'timeout-001',
+        title: 'Network Timeout during search initialization with a very long title to verify line clamping and responsiveness',
+        suite: 'Search Module',
+        status: 'timedOut',
+        startTime: now - 350000,
+        endTime: now - 320000,
+        duration: 30000,
+        retries: 0,
+        sourceLocation: {
+            file: '/users/admin/tests/search.spec.ts',
+            fileName: 'search.spec.ts',
+            line: 42,
+            relativePath: 'tests/search.spec.ts'
+        },
+        attachments: [],
+        steps: []
     }
 ];
 

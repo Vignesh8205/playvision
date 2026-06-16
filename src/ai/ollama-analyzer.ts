@@ -94,7 +94,7 @@ export class OllamaAnalyzer extends BaseAIAnalyzer {
 ${errorContext}
 
         ### MANDATORY STEPS:
-        1. **Root Cause**: Explain exactly why the failure happened. Mention specific locators, URLs, or expected/actual values found in the log. Be thorough (2-3 sentences).
+        1. **Root Cause**: Provide a highly specific, concise technical explanation of the failure. State the exact locator, URL, or condition that failed without any introductory filler (1-2 sentences).
         2. **Category**: Choose EXACTLY ONE from this list: [${this.ERROR_CATEGORIES.join(', ')}].
         3. **Actionable Suggestions**: Provide a numbered list of 3 specific steps. Do NOT be generic. Tell the user exactly which line or component to check.
         4. **Fix Example**: Write a 1-3 line Playwright code snippet that directly addresses the specific failure.

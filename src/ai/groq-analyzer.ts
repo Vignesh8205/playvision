@@ -4,11 +4,11 @@ import * as http from 'http';
 import * as https from 'https';
 
 /**
- * OpenAI-Compatible API Analyzer
- * Uses OpenAI-compatible API for error analysis
+ * Groq API Analyzer
+ * Uses Groq's high-speed inference API for error analysis
  * Configuration is loaded from environment variables
  */
-export class OpenAIAnalyzer extends BaseAIAnalyzer {
+export class GroqAnalyzer extends BaseAIAnalyzer {
     private readonly API_PROTOCOL: 'http:' | 'https:';
     private readonly API_HOST: string;
     private readonly API_PORT: number;
@@ -21,7 +21,7 @@ export class OpenAIAnalyzer extends BaseAIAnalyzer {
         super();
 
         // Load from environment variables with fallback to defaults.
-        const rawApiUrl = process.env.OPENAI_API_URL || 'https://api.apifree.ai/v1/chat/completions';
+        const rawApiUrl = process.env.GROQ_API_URL || 'https://api.groq.com/openai/v1/chat/completions';
         const parsed = new URL(rawApiUrl);
 
         this.API_PROTOCOL = parsed.protocol === 'http:' ? 'http:' : 'https:';
@@ -33,24 +33,24 @@ export class OpenAIAnalyzer extends BaseAIAnalyzer {
                 : 80;
         this.API_PATH = `${parsed.pathname || '/v1/chat/completions'}${parsed.search || ''}`;
 
-        this.MODEL = process.env.OPENAI_MODEL || 'openai/gpt-5.2';
-        this.API_KEY = process.env.OPENAI_API_KEY || '';
+        this.MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+        this.API_KEY = process.env.GROQ_API_KEY || '';
 
         if (!this.API_KEY) {
-            console.warn('OPENAI_API_KEY not found in environment variables. OpenAI analyzer may not work.');
+            console.warn('GROQ_API_KEY not found in environment variables. Groq analyzer may not work.');
         }
     }
 
     async initialize(): Promise<void> {
         if (this.initialized) return;
 
-        console.log('Initializing OpenAI-compatible API analyzer...');
+        console.log('Initializing Groq API analyzer...');
         try {
             await this.testConnection();
-            console.log('OpenAI API connection established');
+            console.log('Groq API connection established');
             this.initialized = true;
         } catch (error) {
-            console.warn('Could not connect to OpenAI API:', error);
+            console.warn('Could not connect to Groq API:', error);
             this.initialized = false;
         }
     }
@@ -61,7 +61,7 @@ export class OpenAIAnalyzer extends BaseAIAnalyzer {
 
     async analyze(error: Error): Promise<AIAnalysis> {
         if (!this.initialized) {
-            throw new Error('OpenAI Analyzer not initialized');
+            throw new Error('Groq Analyzer not initialized');
         }
 
         const errorMessage = this.stripAnsi(error.message);
@@ -69,18 +69,18 @@ export class OpenAIAnalyzer extends BaseAIAnalyzer {
         const prompt = this.createPrompt(errorMessage, stackTrace);
 
         try {
-            const response = await this.queryOpenAI(prompt);
+            const response = await this.queryGroq(prompt);
             const analysis = this.parseResponse(response, errorMessage);
 
             // If parsing returned a generic "Unknown" or empty cause, use heuristics instead
             if (analysis.category === 'Unknown Error' || (analysis.rootCause && analysis.rootCause.includes('empty response'))) {
-                console.log('💡 OpenAI response was poor, falling back to heuristic analysis.');
+                console.log('💡 Groq response was poor, falling back to heuristic analysis.');
                 return this.performHeuristicAnalysis(error);
             }
 
             return analysis;
         } catch (err) {
-            console.error('OpenAI analysis failed:', err);
+            console.error('Groq analysis failed:', err);
             return this.performHeuristicAnalysis(error);
         }
     }
@@ -120,64 +120,54 @@ ${errorContext}
 }`;
     }
 
-    private async queryOpenAI(prompt: string): Promise<string> {
-        return new Promise((resolve, reject) => {
-            const postData = JSON.stringify({
-                model: this.MODEL,
-                messages: [
-                    { role: 'user', content: prompt }
-                ]
-            });
+    private async queryGroq(prompt: string): Promise<string> {
+        const postData = JSON.stringify({
+            model: this.MODEL,
+            messages: [
+                { role: 'user', content: prompt }
+            ]
+        });
 
-            const options = {
-                protocol: this.API_PROTOCOL,
-                hostname: this.API_HOST,
-                port: this.API_PORT,
-                path: this.API_PATH,
+        const url = `${this.API_PROTOCOL}//${this.API_HOST}${this.API_PORT === 80 || this.API_PORT === 443 ? '' : ':' + this.API_PORT}${this.API_PATH}`;
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+
+        try {
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.API_KEY}`,
-                    'Content-Length': Buffer.byteLength(postData)
+                    'Authorization': `Bearer ${this.API_KEY}`
                 },
-                timeout: 30000
-            };
-
-            const client = this.API_PROTOCOL === 'https:' ? https : http;
-            const req = client.request(options, (res) => {
-                let data = '';
-                res.on('data', (chunk) => data += chunk);
-                res.on('end', () => {
-                    if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-                        try {
-                            const json = JSON.parse(data);
-                            const content = json.choices?.[0]?.message?.content || '';
-                            resolve(content);
-                        } catch (e) {
-                            console.error('Invalid JSON from OpenAI:', data.substring(0, 200));
-                            reject(new Error('Invalid JSON from OpenAI'));
-                        }
-                    } else {
-                        console.error(`OpenAI API Error: ${res.statusCode}`);
-                        reject(new Error(`OpenAI API Error: ${res.statusCode} ${data}`));
-                    }
-                });
+                body: postData,
+                signal: controller.signal as any
             });
 
-            req.on('error', (e) => {
-                console.error('OpenAI request error:', e.message);
-                reject(e);
-            });
+            const data = await res.text();
 
-            req.on('timeout', () => {
-                console.error('OpenAI request timeout (30s)');
-                req.destroy();
-                reject(new Error('OpenAI request timeout'));
-            });
-
-            req.write(postData);
-            req.end();
-        });
+            if (res.ok) {
+                try {
+                    const json = JSON.parse(data);
+                    return json.choices?.[0]?.message?.content || '';
+                } catch (e) {
+                    console.error('Invalid JSON from Groq:', data.substring(0, 200));
+                    throw new Error('Invalid JSON from Groq');
+                }
+            } else {
+                console.error(`Groq API Error: ${res.status}`);
+                throw new Error(`Groq API Error: ${res.status} ${data}`);
+            }
+        } catch (e: any) {
+            if (e.name === 'AbortError') {
+                console.error('Groq request timeout (30s)');
+                throw new Error('Groq request timeout');
+            }
+            console.error('Groq request error:', e.message);
+            throw e;
+        } finally {
+            clearTimeout(timeout);
+        }
     }
 
     private parseResponse(response: string, originalError: string): AIAnalysis {
@@ -209,7 +199,7 @@ ${errorContext}
                 flakinessAnalysis: this.analyzeFlakiness(originalError, result.category || ''),
             };
         } catch (e) {
-            console.warn('Failed to parse OpenAI response safely. Raw response:', response);
+            console.warn('Failed to parse Groq response safely. Raw response:', response);
             return {
                 category: 'Unknown Error',
                 confidence: 0.5,
@@ -221,47 +211,40 @@ ${errorContext}
         }
     }
 
-    private testConnection(): Promise<void> {
-        return new Promise((resolve, reject) => {
-            const postData = JSON.stringify({
-                model: this.MODEL,
-                messages: [
-                    { role: 'user', content: 'Hello' }
-                ]
-            });
+    private async testConnection(): Promise<void> {
+        const postData = JSON.stringify({
+            model: this.MODEL,
+            messages: [
+                { role: 'user', content: 'Hello' }
+            ]
+        });
 
-            const options = {
-                protocol: this.API_PROTOCOL,
-                hostname: this.API_HOST,
-                port: this.API_PORT,
-                path: this.API_PATH,
+        const url = `${this.API_PROTOCOL}//${this.API_HOST}${this.API_PORT === 80 || this.API_PORT === 443 ? '' : ':' + this.API_PORT}${this.API_PATH}`;
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+
+        try {
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.API_KEY}`,
-                    'Content-Length': Buffer.byteLength(postData)
+                    'Authorization': `Bearer ${this.API_KEY}`
                 },
-                timeout: 10000
-            };
-
-            const client = this.API_PROTOCOL === 'https:' ? https : http;
-            const req = client.request(options, (res) => {
-                if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-                    resolve();
-                } else {
-                    reject(new Error(`Status ${res.statusCode}`));
-                }
-                res.on('data', () => { });
+                body: postData,
+                signal: controller.signal as any
             });
 
-            req.on('error', reject);
-            req.on('timeout', () => {
-                req.destroy();
-                reject(new Error('Connection timeout'));
-            });
-
-            req.write(postData);
-            req.end();
-        });
+            if (!res.ok) {
+                throw new Error(`Status ${res.status}`);
+            }
+        } catch (e: any) {
+            if (e.name === 'AbortError') {
+                throw new Error('Connection timeout');
+            }
+            throw e;
+        } finally {
+            clearTimeout(timeout);
+        }
     }
 }

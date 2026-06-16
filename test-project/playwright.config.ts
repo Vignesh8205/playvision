@@ -8,13 +8,13 @@ export default defineConfig({
     retries: process.env.CI ? 2 : 1,
     workers: process.env.CI ? 1 : undefined,
     reporter: [
-        ['playvision-report', {//../dist/index.js
+        ['../dist/index.js', {//../dist/index.js
             outputFolder: 'playvision-report',
             screenshots: true,
             videos: 'retain-on-failure',
             aiAnalysis: true,
-            aiMode: 'premium' // Ollama with OpenAI fallback
-        } as PlayVisionConfig] 
+            aiMode: 'groq' // Changed to test groq mode
+        }]
     ],
     use: {
         trace: 'retain-on-failure',

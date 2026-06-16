@@ -11,7 +11,7 @@ export interface PlayVisionConfig {
     /** Enable AI error analysis */
     aiAnalysis: boolean;
     /** AI analysis mode */
-    aiMode?: 'basic' | 'smart' | 'premium';
+    aiMode?: 'basic' | 'smart' | 'premium' | 'openai' | 'mistral' | 'groq' | 'gemini';
     /** Enable PDF Executive Summary export */
     exportPdf?: boolean;
     /** Enable Excel failure data export */

@@ -27,5 +27,8 @@ export enum AIMode {
     BASIC = 'basic',      // Rule-based analysis
     SMART = 'smart',      // HuggingFace transformers
     PREMIUM = 'premium',  // Ollama (with OpenAI fallback)
-    OPENAI = 'openai'     // OpenAI-compatible API (direct)
+    OPENAI = 'openai',    // OpenAI-compatible API (direct)
+    MISTRAL = 'mistral',  // Mistral AI API
+    GROQ = 'groq',        // Groq API
+    GEMINI = 'gemini'     // Google Gemini API
 }
