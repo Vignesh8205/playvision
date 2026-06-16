@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/Vignesh8205/playvision/compare/v1.0.11...v1.1.0) (2026-06-16)
+
+
+### Features
+
+* premium UI redesign, AI analyzer optimizations, and caching ([a9bf049](https://github.com/Vignesh8205/playvision/commit/a9bf0490a7ab1ca1de5bf031cf1a8f3692a53c93))
+
 ## [1.0.11](https://github.com/Vignesh8205/playvision/compare/v1.0.10...v1.0.11) (2026-04-03)
 
 
