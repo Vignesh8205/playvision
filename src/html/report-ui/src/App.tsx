@@ -250,24 +250,24 @@ const App: React.FC = () => {
     };
 
     return (
-        <div className={`min-h-screen font-sans selection:bg-purple-500/30 transition-colors duration-300 ${theme === 'dark' ? 'bg-[#0f1115] text-[#e2e4e9]' : 'bg-[#f8fafc] text-[#1e293b]'
+        <div className={`min-h-screen font-sans selection:bg-indigo-500/30 transition-colors duration-300 ${theme === 'dark' ? 'bg-[#09090b] text-[#e2e4e9]' : 'bg-[#f8fafc] text-[#1e293b]'
             }`}>
             {/* Header */}
-            <header className={`border-b sticky top-0 z-50 backdrop-blur-xl transition-colors duration-300 ${theme === 'dark' ? 'border-white/5 bg-[#161920]/80' : 'border-slate-200 bg-white/80'
+            <header className={`border-b sticky top-0 z-50 transition-colors duration-300 ${theme === 'dark' ? 'glass-panel border-b-white/5' : 'glass-panel-light border-b-slate-200/50'
                 }`}>
                 <div className="max-w-[1600px] mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <motion.div
-                            whileHover={{ scale: 1.05 }}
+                            whileHover={{ scale: 1.05, rotate: 5 }}
                             whileTap={{ scale: 0.95 }}
-                            className="w-12 h-12 bg-gradient-to-tr from-purple-600 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/20"
+                            className="w-12 h-12 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-[18px] flex items-center justify-center shadow-lg shadow-indigo-500/20 ring-1 ring-white/20"
                         >
                             <Activity className="text-white w-7 h-7" />
                         </motion.div>
                         <div>
                             <h1 className="text-xl font-black tracking-tight flex items-center gap-2">
                                 PlayVision
-                                <span className="bg-purple-500/10 text-purple-500 text-[10px] px-2 py-0.5 rounded-full border border-purple-500/20 uppercase tracking-widest font-black">Pro</span>
+                                <span className="bg-indigo-500/10 text-indigo-400 text-[10px] px-2.5 py-0.5 rounded-full border border-indigo-500/20 uppercase tracking-widest font-black">Pro</span>
                             </h1>
                             <p className={`text-[10px] uppercase tracking-[0.2em] font-bold opacity-40`}>
                                 Intelligent Automation Intelligence
@@ -296,9 +296,8 @@ const App: React.FC = () => {
             </header>
 
             <main className="max-w-[1600px] mx-auto px-6 py-10 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-10">
-                {/* Export Status Notification */}
                 {exportStatus && (
-                    <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 bg-purple-600 text-white rounded-full shadow-2xl font-black text-xs uppercase tracking-widest animate-bounce">
+                    <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-full shadow-2xl shadow-indigo-500/30 font-black text-xs uppercase tracking-widest animate-bounce ring-1 ring-white/20">
                         ✨ {exportStatus}
                     </div>
                 )}
@@ -312,8 +311,8 @@ const App: React.FC = () => {
                                 type="text"
                                 placeholder="Search test cases, suites, or error patterns..."
                                 className={`w-full border rounded-3xl py-4 pl-14 pr-6 focus:outline-none focus:ring-4 transition-all text-sm font-medium ${theme === 'dark'
-                                        ? 'bg-[#161920] border-white/5 focus:ring-purple-500/10 focus:border-purple-500/50 placeholder:text-white/10'
-                                        : 'bg-white border-slate-200 focus:ring-purple-100 focus:border-purple-300 shadow-sm placeholder:text-slate-400'
+                                        ? 'bg-[#18181b] border-white/5 focus:ring-indigo-500/10 focus:border-indigo-500/50 placeholder:text-white/10 shadow-inner shadow-black/20'
+                                        : 'bg-white border-slate-200 focus:ring-indigo-100 focus:border-indigo-300 shadow-sm placeholder:text-slate-400'
                                     }`}
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
@@ -413,12 +412,12 @@ const App: React.FC = () => {
                 {/* Right Content: Stats & AI Insights */}
                 <aside className="space-y-10">
                     {/* Ring Chart / Pass Rate Card */}
-                    <div className={`border rounded-[40px] p-8 relative overflow-hidden transition-all duration-500 flex flex-col min-h-[460px] ${theme === 'dark' ? 'bg-[#161920] border-white/5' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'
+                    <div className={`border rounded-[32px] p-10 relative overflow-hidden transition-all duration-500 flex flex-col min-h-[460px] ${theme === 'dark' ? 'bg-[#18181b] border-white/5 shadow-2xl shadow-black/40' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/50'
                         }`}>
-                        <div className="absolute top-0 right-0 w-48 h-48 bg-purple-600/10 blur-[80px] -mr-20 -mt-20" />
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/10 blur-[100px] -mr-20 -mt-20 rounded-full" />
 
-                        <div className="flex items-center justify-between mb-8">
-                            <h2 className="text-xs font-black text-purple-500 uppercase tracking-widest flex items-center gap-2">
+                        <div className="flex items-center justify-between mb-8 z-10">
+                            <h2 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
                                 <Activity className="w-4 h-4" /> Performance
                             </h2>
                             <div className={`text-[10px] font-bold px-3 py-1 rounded-full ${theme === 'dark' ? 'bg-white/5 text-white/40' : 'bg-slate-100 text-slate-500'
@@ -473,25 +472,25 @@ const App: React.FC = () => {
                         <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className={`p-6 border-2 rounded-[32px] relative overflow-hidden transition-all ${theme === 'dark'
-                                    ? 'bg-purple-500/[0.03] border-purple-500/10'
-                                    : 'bg-white border-purple-100 shadow-lg shadow-purple-500/5'
+                            className={`p-8 border rounded-[32px] relative overflow-hidden transition-all ${theme === 'dark'
+                                    ? 'bg-gradient-to-br from-[#18181b] to-[#18181b] border-indigo-500/20 shadow-[0_0_40px_rgba(99,102,241,0.05)]'
+                                    : 'bg-white border-indigo-100 shadow-lg shadow-indigo-500/5'
                                 }`}
                         >
                             <div className="relative z-10">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="p-3 bg-purple-500/20 rounded-2xl shadow-inner">
-                                        <Bot className="text-purple-500 w-6 h-6" />
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="p-3 bg-indigo-500/20 rounded-2xl shadow-inner border border-indigo-500/20">
+                                        <Bot className="text-indigo-400 w-6 h-6" />
                                     </div>
                                     <div>
-                                        <div className="text-xs font-black text-purple-500 uppercase tracking-widest">Automation Bot</div>
-                                        <h4 className="text-sm font-bold opacity-80">Root Cause Detected</h4>
+                                        <div className="text-xs font-black text-indigo-400 uppercase tracking-widest">Automation Bot</div>
+                                        <h4 className="text-sm font-bold opacity-90">Root Cause Detected</h4>
                                     </div>
                                 </div>
                                 <p className="text-sm leading-relaxed opacity-60 font-medium">
                                     Self-healing intelligence has analyzed **{stats.aiInsights}** complex failures across your suite.
                                 </p>
-                                <button className="w-full mt-6 py-3 bg-purple-600 hover:bg-purple-500 text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-purple-600/20">
+                                <button className="w-full mt-6 py-3.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-indigo-500/25 ring-1 ring-white/20">
                                     Explore Fix Guides
                                 </button>
                             </div>

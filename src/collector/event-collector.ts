@@ -13,6 +13,7 @@ export class EventCollector implements IEventCollector {
     private results: Map<string, TestResult> = new Map();
     private aiMode: AIMode;
     private aiAnalysisEnabled: boolean;
+    private analysisCache: Map<string, Promise<AIAnalysis | undefined>> = new Map();
     private pendingTasks: Promise<void>[] = [];
 
     constructor(aiMode: AIMode = AIMode.SMART, aiAnalysisEnabled: boolean = true) {
@@ -157,13 +158,27 @@ export class EventCollector implements IEventCollector {
                     let aiAnalysis: AIAnalysis | undefined;
 
                     if (this.aiAnalysisEnabled) {
-                        console.log(`Analyzing error for: ${testResult.title}`);
-                        const analyzer = await AIAnalyzerFactory.create(this.aiMode);
+                        const cacheKey = errorMessage.trim();
+                        if (!this.analysisCache) {
+                            this.analysisCache = new Map();
+                        }
+                        
+                        let analysisPromise = this.analysisCache.get(cacheKey);
+                        
+                        if (!analysisPromise) {
+                            console.log(`Analyzing error for: ${testResult.title}`);
+                            const analyzer = await AIAnalyzerFactory.create(this.aiMode);
 
-                        const error = new Error(errorMessage);
-                        error.stack = errorStack;
+                            const error = new Error(errorMessage);
+                            error.stack = errorStack;
 
-                        aiAnalysis = await analyzer.analyze(error);
+                            analysisPromise = analyzer.analyze(error);
+                            this.analysisCache.set(cacheKey, analysisPromise);
+                        } else {
+                            console.log(`Using cached AI analysis for error in: ${testResult.title}`);
+                        }
+
+                        aiAnalysis = await analysisPromise;
 
                         if (aiAnalysis) {
                             console.log(`AI: ${aiAnalysis.category} (${(aiAnalysis.confidence * 100).toFixed(0)}%)`);

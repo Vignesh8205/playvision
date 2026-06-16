@@ -4,11 +4,11 @@ import * as http from 'http';
 import * as https from 'https';
 
 /**
- * OpenAI-Compatible API Analyzer
- * Uses OpenAI-compatible API for error analysis
+ * Mistral API Analyzer
+ * Uses Mistral's API for error analysis
  * Configuration is loaded from environment variables
  */
-export class OpenAIAnalyzer extends BaseAIAnalyzer {
+export class MistralAnalyzer extends BaseAIAnalyzer {
     private readonly API_PROTOCOL: 'http:' | 'https:';
     private readonly API_HOST: string;
     private readonly API_PORT: number;
@@ -21,7 +21,7 @@ export class OpenAIAnalyzer extends BaseAIAnalyzer {
         super();
 
         // Load from environment variables with fallback to defaults.
-        const rawApiUrl = process.env.OPENAI_API_URL || 'https://api.apifree.ai/v1/chat/completions';
+        const rawApiUrl = process.env.MISTRAL_API_URL || 'https://api.mistral.ai/v1/chat/completions';
         const parsed = new URL(rawApiUrl);
 
         this.API_PROTOCOL = parsed.protocol === 'http:' ? 'http:' : 'https:';
@@ -33,24 +33,24 @@ export class OpenAIAnalyzer extends BaseAIAnalyzer {
                 : 80;
         this.API_PATH = `${parsed.pathname || '/v1/chat/completions'}${parsed.search || ''}`;
 
-        this.MODEL = process.env.OPENAI_MODEL || 'openai/gpt-5.2';
-        this.API_KEY = process.env.OPENAI_API_KEY || '';
+        this.MODEL = process.env.MISTRAL_MODEL || 'mistral-small-latest';
+        this.API_KEY = process.env.MISTRAL_API_KEY || '';
 
         if (!this.API_KEY) {
-            console.warn('OPENAI_API_KEY not found in environment variables. OpenAI analyzer may not work.');
+            console.warn('MISTRAL_API_KEY not found in environment variables. Mistral analyzer may not work.');
         }
     }
 
     async initialize(): Promise<void> {
         if (this.initialized) return;
 
-        console.log('Initializing OpenAI-compatible API analyzer...');
+        console.log('Initializing Mistral API analyzer...');
         try {
             await this.testConnection();
-            console.log('OpenAI API connection established');
+            console.log('Mistral API connection established');
             this.initialized = true;
         } catch (error) {
-            console.warn('Could not connect to OpenAI API:', error);
+            console.warn('Could not connect to Mistral API:', error);
             this.initialized = false;
         }
     }
@@ -61,7 +61,7 @@ export class OpenAIAnalyzer extends BaseAIAnalyzer {
 
     async analyze(error: Error): Promise<AIAnalysis> {
         if (!this.initialized) {
-            throw new Error('OpenAI Analyzer not initialized');
+            throw new Error('Mistral Analyzer not initialized');
         }
 
         const errorMessage = this.stripAnsi(error.message);
@@ -69,18 +69,18 @@ export class OpenAIAnalyzer extends BaseAIAnalyzer {
         const prompt = this.createPrompt(errorMessage, stackTrace);
 
         try {
-            const response = await this.queryOpenAI(prompt);
+            const response = await this.queryMistral(prompt);
             const analysis = this.parseResponse(response, errorMessage);
 
             // If parsing returned a generic "Unknown" or empty cause, use heuristics instead
             if (analysis.category === 'Unknown Error' || (analysis.rootCause && analysis.rootCause.includes('empty response'))) {
-                console.log('💡 OpenAI response was poor, falling back to heuristic analysis.');
+                console.log('💡 Mistral response was poor, falling back to heuristic analysis.');
                 return this.performHeuristicAnalysis(error);
             }
 
             return analysis;
         } catch (err) {
-            console.error('OpenAI analysis failed:', err);
+            console.error('Mistral analysis failed:', err);
             return this.performHeuristicAnalysis(error);
         }
     }
@@ -120,7 +120,7 @@ ${errorContext}
 }`;
     }
 
-    private async queryOpenAI(prompt: string): Promise<string> {
+    private async queryMistral(prompt: string): Promise<string> {
         return new Promise((resolve, reject) => {
             const postData = JSON.stringify({
                 model: this.MODEL,
@@ -154,25 +154,25 @@ ${errorContext}
                             const content = json.choices?.[0]?.message?.content || '';
                             resolve(content);
                         } catch (e) {
-                            console.error('Invalid JSON from OpenAI:', data.substring(0, 200));
-                            reject(new Error('Invalid JSON from OpenAI'));
+                            console.error('Invalid JSON from Mistral:', data.substring(0, 200));
+                            reject(new Error('Invalid JSON from Mistral'));
                         }
                     } else {
-                        console.error(`OpenAI API Error: ${res.statusCode}`);
-                        reject(new Error(`OpenAI API Error: ${res.statusCode} ${data}`));
+                        console.error(`Mistral API Error: ${res.statusCode}`);
+                        reject(new Error(`Mistral API Error: ${res.statusCode} ${data}`));
                     }
                 });
             });
 
             req.on('error', (e) => {
-                console.error('OpenAI request error:', e.message);
+                console.error('Mistral request error:', e.message);
                 reject(e);
             });
 
             req.on('timeout', () => {
-                console.error('OpenAI request timeout (30s)');
+                console.error('Mistral request timeout (30s)');
                 req.destroy();
-                reject(new Error('OpenAI request timeout'));
+                reject(new Error('Mistral request timeout'));
             });
 
             req.write(postData);
@@ -209,7 +209,7 @@ ${errorContext}
                 flakinessAnalysis: this.analyzeFlakiness(originalError, result.category || ''),
             };
         } catch (e) {
-            console.warn('Failed to parse OpenAI response safely. Raw response:', response);
+            console.warn('Failed to parse Mistral response safely. Raw response:', response);
             return {
                 category: 'Unknown Error',
                 confidence: 0.5,

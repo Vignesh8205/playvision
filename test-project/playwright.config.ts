@@ -13,8 +13,8 @@ export default defineConfig({
             screenshots: true,
             videos: 'retain-on-failure',
             aiAnalysis: true,
-            aiMode: 'premium' // Ollama with OpenAI fallback
-        } as PlayVisionConfig]
+            aiMode: 'groq' // Changed to test groq mode
+        }]
     ],
     use: {
         trace: 'retain-on-failure',

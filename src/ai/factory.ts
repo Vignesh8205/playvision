@@ -3,6 +3,9 @@ import { HuggingFaceAnalyzer } from './huggingface-analyzer';
 import { RuleBasedAnalyzer } from './rule-based-analyzer';
 import { OllamaAnalyzer } from './ollama-analyzer';
 import { OpenAIAnalyzer } from './openai-analyzer';
+import { MistralAnalyzer } from './mistral-analyzer';
+import { GroqAnalyzer } from './groq-analyzer';
+import { GeminiAnalyzer } from './gemini-analyzer';
 
 /**
  * Factory for creating AI analyzers based on mode
@@ -10,6 +13,7 @@ import { OpenAIAnalyzer } from './openai-analyzer';
 export class AIAnalyzerFactory {
     private static analyzers: Map<string, new () => IAIAnalyzer> = new Map();
     private static instances: Map<string, IAIAnalyzer> = new Map();
+    private static pendingPromises: Map<string, Promise<IAIAnalyzer>> = new Map();
 
     /**
      * Register a new analyzer implementation
@@ -26,6 +30,14 @@ export class AIAnalyzerFactory {
         if (this.instances.has(mode)) {
             return this.instances.get(mode)!;
         }
+
+        // Return pending promise if initialization is in progress
+        if (this.pendingPromises.has(mode)) {
+            return this.pendingPromises.get(mode)!;
+        }
+
+        const creationPromise = (async () => {
+
 
         let analyzer: IAIAnalyzer;
 
@@ -45,6 +57,15 @@ export class AIAnalyzerFactory {
                 case AIMode.OPENAI:
                     analyzer = new OpenAIAnalyzer();
                     break;
+                case AIMode.MISTRAL:
+                    analyzer = new MistralAnalyzer();
+                    break;
+                case AIMode.GROQ:
+                    analyzer = new GroqAnalyzer();
+                    break;
+                case AIMode.GEMINI:
+                    analyzer = new GeminiAnalyzer();
+                    break;
                 case AIMode.BASIC:
                 default:
                     analyzer = new RuleBasedAnalyzer();
@@ -59,5 +80,13 @@ export class AIAnalyzerFactory {
 
         this.instances.set(mode, analyzer);
         return analyzer;
+        })();
+        
+        this.pendingPromises.set(mode, creationPromise);
+        try {
+            return await creationPromise;
+        } finally {
+            this.pendingPromises.delete(mode);
+        }
     }
 }
