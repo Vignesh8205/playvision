@@ -6,14 +6,7 @@ import autoprefixer from 'autoprefixer';
 
 export default defineConfig({
   plugins: [react(), viteSingleFile()],
-  css: {
-    postcss: {
-      plugins: [
-        tailwindcss(),
-        autoprefixer()
-      ]
-    }
-  },
+
   build: {
     modulePreload: false,
     assetsInlineLimit: 100000000, // Inline everything
