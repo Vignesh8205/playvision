@@ -1,3 +1,11 @@
+## [1.1.1](https://github.com/Vignesh8205/playvision/compare/v1.1.0...v1.1.1) (2026-06-18)
+
+
+### Bug Fixes
+
+* include tailwind and postcss config files ignored by git ([7d476df](https://github.com/Vignesh8205/playvision/commit/7d476dfa5bd2737ea358d5b05c71ed36a8175545))
+* include tailwind and postcss config files ignored by git ([bf4b880](https://github.com/Vignesh8205/playvision/commit/bf4b8801b370c0fe7a935beae2dd310495b7f5a5))
+
 # [1.1.0](https://github.com/Vignesh8205/playvision/compare/v1.0.11...v1.1.0) (2026-06-16)
 
 
