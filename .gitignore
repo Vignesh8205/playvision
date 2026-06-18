@@ -9,3 +9,4 @@ test-project/test-results/
 src/**/*.js
 src/**/*.js.map
 .env
+.playwright-mcp/
